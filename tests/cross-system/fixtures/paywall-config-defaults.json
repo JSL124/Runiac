@@ -1,0 +1,29 @@
+{
+  "enabled": true,
+  "title": "Runiac Premium",
+  "badge": "More guidance",
+  "features": [
+    {
+      "title": "Advanced run analysis",
+      "subtitle": "Cadence, heart-rate and split insights"
+    },
+    { "title": "Personal coaching summary", "subtitle": "" },
+    { "title": "AI activity feedback", "subtitle": "" },
+    { "title": "Enhanced post-run summaries", "subtitle": "" },
+    { "title": "Premium sharing cards", "subtitle": "" }
+  ],
+  "monthly": { "price": "S$5.99", "period": "per month", "note": "" },
+  "yearly": {
+    "price": "S$49.99",
+    "period": "per year",
+    "note": "About S$4.17/month · save about 30%"
+  },
+  "ctaLabel": "Subscribe",
+  "footer": {
+    "showTerms": true,
+    "termsLabel": "Terms of service",
+    "showPrivacy": true,
+    "privacyLabel": "Privacy policy"
+  },
+  "highlightIntervalMs": 1800
+}

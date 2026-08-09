@@ -1,0 +1,69 @@
+# OS / editor
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.iml
+*.swp
+
+# Logs and temporary files
+*.log
+tmp/
+.cache/
+
+# Node
+node_modules/
+coverage/
+
+# Next.js
+.next/
+out/
+*.tsbuildinfo
+next-env.d.ts
+
+# Cloud Functions build output
+functions/lib/
+
+# Flutter / Dart
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+.pub-cache/
+build/
+mobile/ios/Pods/
+mobile/ios/Flutter/Generated.xcconfig
+mobile/ios/Flutter/flutter_export_environment.sh
+mobile/ios/Flutter/ephemeral/
+mobile/android/.gradle/
+mobile/android/local.properties
+mobile/android/key.properties
+
+# Environment files and local configuration — never commit real values
+.env
+.env.*
+!.env.example
+!.env.local.example
+.secret.local
+.firebaserc
+!.firebaserc.example
+
+# Firebase generated / native config
+.firebase/
+firebase-export-*/
+firebase_options.dart
+google-services.json
+GoogleService-Info.plist
+dart_define*.local.json
+!dart_define.example.json
+
+# Credentials and signing material
+*service-account*.json
+serviceAccount*.json
+*.jks
+*.keystore
+*.p12
+*.p8
+*.mobileprovision
+
+# Large release artifact — published on GitHub Releases instead
+website/public/runiac.apk

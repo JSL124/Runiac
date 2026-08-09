@@ -1,0 +1,130 @@
+rules_version = '2';
+
+service firebase.storage {
+  match /b/{bucket}/o {
+    function isOwner(uid) {
+      return request.auth != null && request.auth.uid == uid;
+    }
+
+    // Mirrors functions/src/config/featureEntitlement.ts:isPremiumGatedFeature
+    // exactly: shareCards is gated only when config/featureAccess names it
+    // "premium" AND has not been released via enabled: false. The tier is read
+    // live from Firestore rather than hardcoded so a Platform Administrator's
+    // console flip takes effect immediately, with no rules redeploy, exactly
+    // like the server-side check. A key this deployment's catalog does not
+    // know about (including the whole document being absent) reads as Basic —
+    // fail-open by design, matching the shipped default
+    // (configLoader.ts:202 has shareCards: { minimumTier: "basic" }).
+    // `enabled: false` RELEASES the gate rather than disabling the feature;
+    // getting that backwards is the documented failure mode of the server
+    // helper this mirrors, so it is called out here too.
+    function isShareCardUploadGated() {
+      let configPath = /databases/(default)/documents/config/featureAccess;
+      return firestore.exists(configPath) &&
+        firestore.get(configPath).data.get(['features', 'shareCards', 'minimumTier'], 'basic') == 'premium' &&
+        firestore.get(configPath).data.get(['features', 'shareCards', 'enabled'], true) != false;
+    }
+
+    // Costs one extra Firestore read per upload attempt (the users/{uid} doc),
+    // paid only when isShareCardUploadGated() is true. subscriptionExpiresAt
+    // is deliberately NOT evaluated here: rules can only read the materialised
+    // subscriptionStatus, not run the expiry-sweep logic, so this mirrors
+    // isPremiumSubscription's server contract of trusting the materialised
+    // status as-is (see progressionAuditHelpers.ts's readSubscriptionExpiresAtMs
+    // comment on why that keeps rules, the sweep, and the in-request check
+    // consistent by construction). Both subscriptionStatus spellings
+    // ("premium" and "Premium") are accepted, matching isPremiumSubscription.
+    function isShareCardUploadEntitled(uid) {
+      let userPath = /databases/(default)/documents/users/$(uid);
+      return !isShareCardUploadGated() ||
+        (firestore.exists(userPath) &&
+          firestore.get(userPath).data.get('subscriptionStatus', '') in ['premium', 'Premium']);
+    }
+
+    function hasExpectedStagingMetadata(uid, activityId, uploadName) {
+      return request.resource.metadata.keys().hasAll([
+          'ownerUid',
+          'activityId',
+          'uploadId',
+        ]) &&
+        request.resource.metadata.keys().hasOnly([
+          'ownerUid',
+          'activityId',
+          'uploadId',
+        ]) &&
+        request.resource.metadata.ownerUid == uid &&
+        request.resource.metadata.activityId == activityId &&
+        request.resource.metadata.uploadId == uploadName;
+    }
+
+    match /feed-thumbnail-staging/{uid}/{activityId}/{uploadName} {
+      allow create: if isOwner(uid) &&
+        uploadName.matches('^[A-Za-z0-9_-]+\\.png$') &&
+        request.resource.size > 0 &&
+        request.resource.size <= 1024 * 1024 &&
+        request.resource.contentType == 'image/png' &&
+        hasExpectedStagingMetadata(uid, activityId, uploadName);
+      allow read, delete: if isOwner(uid);
+      allow update: if false;
+    }
+
+    match /feed-thumbnails/{uid}/{activityId}/route-preview.png {
+      allow read: if isOwner(uid);
+      allow create, update, delete: if false;
+    }
+
+    // Owner-uploaded rank share card. The owner writes and reads it; a
+    // shareable link is produced from the download token, which grants read to
+    // anyone holding the link (that is the point of "Copy Link"). Only trusted
+    // display values are rendered into the image; no backend-owned value is
+    // written here.
+    match /share-cards/{uid}/{fileName} {
+      allow create, update: if isOwner(uid) &&
+        fileName.matches('^[A-Za-z0-9_-]+\\.png$') &&
+        request.resource.size > 0 &&
+        request.resource.size <= 4 * 1024 * 1024 &&
+        request.resource.contentType == 'image/png' &&
+        isShareCardUploadEntitled(uid);
+      allow read, delete: if isOwner(uid);
+    }
+
+    // Project-document PDFs (see website/src/lib/firebase/storage.ts) are
+    // written and read exclusively by the website's Firebase Admin SDK,
+    // which bypasses Storage security rules entirely. No client should ever
+    // touch this prefix directly, so deny every client request outright.
+    match /project-documents/{docId}/{fileName} {
+      allow read, write: if false;
+    }
+
+    // Client-uploaded avatar photo, staged before the setProfileAvatar
+    // Cloud Function promotes it to the durable avatars/ object below. The
+    // owner segment must equal the caller's own uid (isOwner(uid)), the same
+    // shape as feed-thumbnail-staging above.
+    match /avatar-staging/{uid}/{uploadName} {
+      allow create: if isOwner(uid)
+        && uploadName.matches('^[A-Za-z0-9_-]+\\.png$')
+        && request.resource.size > 0
+        && request.resource.size <= 1024 * 1024
+        && request.resource.contentType == 'image/png'
+        && request.resource.metadata.keys().hasOnly(['ownerUid'])
+        && request.resource.metadata.ownerUid == uid;
+      allow read, delete: if isOwner(uid);
+      allow update: if false;
+    }
+
+    // Durable avatar photo, written only by the setProfileAvatar Cloud
+    // Function via the Admin SDK (which bypasses these rules entirely) using
+    // an opaque server-minted id — the file name never contains a uid. The
+    // Firebase Storage download token embedded in the served avatarUrl is
+    // the ONLY read gate on this object, so these rules are intentionally
+    // bypassed by design for every legitimate read: knowing the URL is
+    // sufficient, with no auth, no App Check, and no rules check applied.
+    // That makes every object under this prefix a public, unauthenticated
+    // bearer-capability asset for as long as its token is live — the same
+    // trade-off already accepted for share-cards above, just applied here to
+    // a photo instead of a rank card.
+    match /avatars/{fileName} {
+      allow read, write: if false;
+    }
+  }
+}

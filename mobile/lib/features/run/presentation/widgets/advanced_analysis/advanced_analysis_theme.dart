@@ -1,0 +1,20 @@
+import 'package:flutter/material.dart';
+
+const advancedAnalysisBlue = Color(0xFF2F51C8);
+const advancedAnalysisOrange = Color(0xFFFB6414);
+const advancedAnalysisSurface = Color(0xFFF4F7FF);
+const advancedAnalysisCard = Color(0xFFFFFFFF);
+const advancedAnalysisInk = Color(0xFF16235C);
+const advancedAnalysisBlue90 = Color(0xE62F51C8);
+const advancedAnalysisBlue75 = Color(0xBF2F51C8);
+const advancedAnalysisBlue60 = Color(0x992F51C8);
+const advancedAnalysisBlue45 = Color(0x732F51C8);
+const advancedAnalysisBlue30 = Color(0x4D2F51C8);
+const advancedAnalysisBlue22 = Color(0x382F51C8);
+const advancedAnalysisBlue18 = Color(0x2E2F51C8);
+const advancedAnalysisBlue12 = Color(0x1F2F51C8);
+const advancedAnalysisBlue10 = Color(0x1A2F51C8);
+const advancedAnalysisBlue07 = Color(0x122F51C8);
+const advancedAnalysisOrange16 = Color(0x29FB6414);
+const advancedAnalysisOrange12 = Color(0x1FFB6414);
+const advancedAnalysisOrange08 = Color(0x14FB6414);

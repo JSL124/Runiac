@@ -1,0 +1,254 @@
+@import "tailwindcss";
+
+@font-face {
+  font-family: "Sprintura Demo";
+  src: url("/fonts/sprintura-demo.otf") format("opentype");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+:root {
+  --background: #ffffff;
+  --foreground: #001014;
+  --muted: #4a4a4a;
+  --border: #e4e5f3;
+  --brand: #001e62;
+  --brand-soft: #f1f2fb;
+  --accent: #f26a3d;
+  --accent-soft: #fff1e6;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-muted: var(--muted);
+  --color-border: var(--border);
+  --color-brand: var(--brand);
+  --color-brand-soft: var(--brand-soft);
+  --color-accent: var(--accent);
+  --color-accent-soft: var(--accent-soft);
+  --font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: ui-monospace, "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+}
+
+html {
+  scroll-behavior: smooth;
+  overflow-x: clip;
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  overflow-x: clip;
+}
+
+@media (max-width: 639px) {
+  .about-page {
+    overflow-wrap: anywhere;
+  }
+
+  .about-page :where(h1, h2, h3, p) {
+    max-width: min(100%, 20rem);
+  }
+
+  .legal-page {
+    overflow-wrap: anywhere;
+  }
+
+  .legal-page :where(h1, h2, h3, p, li) {
+    max-width: min(100%, 20rem);
+  }
+}
+
+@keyframes pain-point-scroll-down {
+  from {
+    transform: translateY(0);
+  }
+
+  to {
+    transform: translateY(-50%);
+  }
+}
+
+.animate-pain-point-scroll-down {
+  animation: pain-point-scroll-down 18s linear infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-pain-point-scroll-down {
+    animation: none;
+  }
+}
+
+/* Testimonials horizontal marquee. The scrolling track renders its children
+   twice, so translating by -50% loops seamlessly. Duration comes from the
+   per-row --scroll-duration custom property set by TestimonialsSection. */
+@keyframes scroll-horizontal {
+  from {
+    transform: translateX(0);
+  }
+
+  to {
+    transform: translateX(-50%);
+  }
+}
+
+@keyframes scroll-horizontal-reverse {
+  from {
+    transform: translateX(-50%);
+  }
+
+  to {
+    transform: translateX(0);
+  }
+}
+
+.animate-scroll-horizontal {
+  animation: scroll-horizontal var(--scroll-duration, 40s) linear infinite;
+}
+
+.animate-scroll-horizontal-reverse {
+  animation: scroll-horizontal-reverse var(--scroll-duration, 40s) linear infinite;
+}
+
+/* Soft fade at both horizontal edges of a scroller. */
+.mask-fade {
+  -webkit-mask-image: linear-gradient(
+    to right,
+    transparent,
+    black 8%,
+    black 92%,
+    transparent
+  );
+  mask-image: linear-gradient(
+    to right,
+    transparent,
+    black 8%,
+    black 92%,
+    transparent
+  );
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-scroll-horizontal,
+  .animate-scroll-horizontal-reverse {
+    animation: none;
+  }
+}
+
+.team-flip-card {
+  min-height: 430px;
+  perspective: 1200px;
+}
+
+.team-flip-card-hit-area {
+  height: 100%;
+  cursor: pointer;
+  outline: none;
+}
+
+.team-flip-card-hit-area:focus-visible .team-flip-card-inner {
+  box-shadow: 0 0 0 3px rgba(0, 30, 98, 0.22),
+    0 30px 80px -42px rgba(0, 30, 98, 0.5);
+}
+
+.team-flip-card-inner {
+  position: relative;
+  height: 100%;
+  min-height: 430px;
+  transform-style: preserve-3d;
+  transition: transform 0.65s cubic-bezier(0.22, 1, 0.36, 1),
+    box-shadow 0.25s ease;
+}
+
+.team-flip-card.is-flipped .team-flip-card-inner {
+  transform: rotateY(180deg);
+}
+
+.team-flip-card-face {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: 0.5rem;
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+  box-shadow: 0 24px 70px -48px rgba(0, 30, 98, 0.45);
+}
+
+.team-flip-card-front {
+  background: var(--brand);
+}
+
+.team-flip-card-back {
+  background: #ffffff;
+  pointer-events: none;
+  transform: rotateY(180deg);
+}
+
+.team-flip-card.is-flipped .team-flip-card-front {
+  pointer-events: none;
+}
+
+.team-flip-card.is-flipped .team-flip-card-back {
+  pointer-events: auto;
+}
+
+.team-flip-photo {
+  position: absolute;
+  inset: 0;
+  background: var(--brand-soft);
+}
+
+.team-flip-photo-shade {
+  position: absolute;
+  inset: 42% 0 0;
+  background: linear-gradient(180deg, transparent, rgba(0, 16, 20, 0.78));
+  pointer-events: none;
+}
+
+.team-flip-meta {
+  position: absolute;
+  inset: auto 0 0;
+  z-index: 1;
+  padding: 1.5rem;
+  text-align: center;
+}
+
+.team-social-link {
+  display: inline-flex;
+  height: 2.75rem;
+  width: 2.75rem;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--border);
+  border-radius: 9999px;
+  background: var(--brand-soft);
+  color: var(--brand);
+  transition: transform 0.2s ease, border-color 0.2s ease, color 0.2s ease,
+    background-color 0.2s ease;
+}
+
+.team-social-link svg {
+  height: 1.15rem;
+  width: 1.15rem;
+}
+
+.team-social-link:hover,
+.team-social-link:focus-visible {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+  color: var(--accent);
+  transform: translateY(-2px);
+  outline: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .team-flip-card-inner,
+  .team-social-link {
+    transition: none;
+  }
+}

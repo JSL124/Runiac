@@ -1,0 +1,33 @@
+{
+  "name": "runiac-complete-run-functions",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "main": "lib/src/index.js",
+  "engines": {
+    "node": "22"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "test:challenge": "npm run build && GCLOUD_PROJECT=demo-runiac-challenge FIRESTORE_EMULATOR_HOST=127.0.0.1:8080 FUNCTIONS_EMULATOR_HOST=127.0.0.1:5001 firebase emulators:exec --only firestore,functions --project demo-runiac-challenge \"node --test --test-concurrency=1 lib/test/challengeCatalog.test.js lib/test/challengeStateMachine.test.js lib/test/challengeExpiry.test.js lib/test/challengeLobby.test.js lib/test/challengeCallableSurface.test.js lib/test/challengeContribution.test.js lib/test/challengeSettlement.test.js lib/test/challengeNotifications.test.js lib/test/challengePremiumLapse.test.js\"",
+    "test:friends": "npm run build && GCLOUD_PROJECT=demo-runiac-friends FIRESTORE_EMULATOR_HOST=127.0.0.1:8080 firebase emulators:exec --only firestore --project demo-runiac-friends \"node --test --test-concurrency=1 lib/test/friendsCore.test.js\"",
+    "test": "npm run build && RUNIAC_HOME_GUIDE_FAKE_PROVIDER=deterministic FIREBASE_AUTH_EMULATOR_HOST=127.0.0.1:9099 FUNCTIONS_EMULATOR_HOST=127.0.0.1:5001 FIREBASE_STORAGE_EMULATOR_HOST=127.0.0.1:9199 firebase emulators:exec --only auth,functions,firestore,storage --project runiac-functions-test \"node --test --test-concurrency=1 lib/test/progressionCalculator.test.js lib/test/progressionAuditHelpers.test.js lib/test/roles.test.js lib/test/accountStatus.test.js lib/test/accountDeletion.test.js lib/test/subscriptionExpiry.test.js lib/test/streakExpiry.test.js lib/test/completedAtFreshness.test.js lib/test/completeRun.test.js lib/test/planProgressCompletion.test.js lib/test/completeCoolDown.test.js lib/test/completeRunCallableSurface.test.js lib/test/monthlyLeaderboard.test.js lib/test/monthlyLeaderboardWriter.test.js lib/test/leaderboardAdminCommand.test.js lib/test/leaderboardMockDataset.test.js lib/test/leaderboardSeedFirestore.test.js lib/test/leaderboardSeedVerification.test.js lib/test/seedLeaderboardInventory.test.js lib/test/seedLeaderboardMockData.test.js lib/test/seedLeaderboardSafety.test.js lib/test/seedLeaderboardCleanup.test.js lib/test/leaderboardSeedAuthorization.test.js lib/test/notificationDevices.test.js lib/test/notificationDispatch.test.js lib/test/notificationScheduledDispatch.test.js lib/test/homeGuideEvidence.test.js lib/test/homeGuideModel.test.js lib/test/homeGuideGeneratedCopyPolicy.test.js lib/test/homeGuideQuotaCache.test.js lib/test/homeGuideAgentSurface.test.js lib/test/homeGuideConsent.test.js lib/test/homeGuideAgentCallableSurface.test.js lib/test/activityFeedbackAgentCallableSurface.test.js lib/test/activityFeedbackContracts.test.js lib/test/activityFeedbackModel.test.js lib/test/workoutBriefingAgentCallableSurface.test.js lib/test/workoutBriefingContracts.test.js lib/test/workoutBriefingModel.test.js lib/test/submitFeedback.test.js lib/test/newsletterSubscribe.test.js lib/test/newsletterConfirm.test.js lib/test/newsletterUnsubscribe.test.js lib/test/newsletterCampaign.test.js lib/test/newsletterSweep.test.js lib/test/reportAppError.test.js lib/test/backendErrorReporting.test.js lib/test/feedAuthorLevels.test.js lib/test/friendLevels.test.js lib/test/runnerPublicProfile.test.js lib/test/runnerPublicProfileEmulatorIntegration.test.js lib/test/configLoader.test.js lib/test/avatarPaths.test.js lib/test/feedPublishEntitlement.test.js lib/test/featureEntitlement.test.js lib/test/automationGate.test.js lib/test/levelUpLeaderboard.integration.test.js\" && npm run test:feed && npm run test:moderation && npm run test:challenge && npm run test:friends",
+    "test:feed": "npm run build && GCLOUD_PROJECT=demo-runiac-feed FIREBASE_AUTH_EMULATOR_HOST=127.0.0.1:9099 FIRESTORE_EMULATOR_HOST=127.0.0.1:8080 FUNCTIONS_EMULATOR_HOST=127.0.0.1:5001 FIREBASE_STORAGE_EMULATOR_HOST=127.0.0.1:9199 firebase emulators:exec --only auth,firestore,functions,storage --project demo-runiac-feed \"node --test --test-concurrency=1 lib/test/feedCallableSurface.test.js lib/test/feedContracts.test.js lib/test/feedEngagement.test.js lib/test/feedEngagementNotifications.test.js lib/test/feedEngagementPush.test.js lib/test/feedFixtureGuard.test.js lib/test/feedLifecycle.test.js lib/test/feedPublishCore.test.js lib/test/feedThumbnailCore.test.js lib/test/avatarPng.test.js lib/test/profileAvatar.test.js lib/test/feedEmulatorIntegration.test.js lib/test/profileAvatarEmulatorIntegration.test.js\"",
+    "test:moderation": "npm run build && GCLOUD_PROJECT=demo-runiac-moderation FIRESTORE_EMULATOR_HOST=127.0.0.1:8080 FUNCTIONS_EMULATOR_HOST=127.0.0.1:5001 FIREBASE_STORAGE_EMULATOR_HOST=127.0.0.1:9199 firebase emulators:exec --only firestore,functions,storage --project demo-runiac-moderation \"node --test --test-concurrency=1 lib/test/moderationCommand.test.js lib/test/reportAutomation.test.js lib/test/staleReportSweep.test.js lib/test/errorGroupNotifications.test.js\"",
+    "feed:fixtures:emulator": "npm run build && GCLOUD_PROJECT=demo-runiac-feed FIREBASE_AUTH_EMULATOR_HOST=127.0.0.1:9099 FIRESTORE_EMULATOR_HOST=127.0.0.1:8080 FUNCTIONS_EMULATOR_HOST=127.0.0.1:5001 FIREBASE_STORAGE_EMULATOR_HOST=127.0.0.1:9199 node lib/src/feed/fixtures/cli.js",
+    "leaderboard:seed": "npm run build && node lib/src/leaderboard/seedLeaderboardMockData.js",
+    "leaderboard:seed:emulator": "npm run build && firebase emulators:exec --only functions,firestore --project runiac-functions-test \"node lib/src/leaderboard/seedLeaderboardMockData.js --project runiac-functions-test --period 2026-07 --run-id leaderboard-je-emulator-local --region-id jurong-east --users-per-region 100 --lifecycle\""
+  },
+  "dependencies": {
+    "@langchain/core": "1.2.2",
+    "@langchain/langgraph": "1.4.7",
+    "@langchain/openai": "1.5.5",
+    "firebase-admin": "13.6.0",
+    "firebase-functions": "6.4.0"
+  },
+  "devDependencies": {
+    "firebase-tools": "14.27.0",
+    "typescript": "5.9.3",
+    "@types/node": "22.19.0"
+  }
+}

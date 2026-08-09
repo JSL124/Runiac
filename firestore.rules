@@ -1,0 +1,1258 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(uid) {
+      return isSignedIn() && request.auth.uid == uid;
+    }
+
+    function hasOnlyAllowedKeys(allowedKeys) {
+      return request.resource.data.keys().hasOnly(allowedKeys);
+    }
+
+    function changesOnlyAllowedKeys(allowedKeys) {
+      return request.resource.data.diff(resource.data).affectedKeys().hasOnly(allowedKeys);
+    }
+
+    function backendOwnedKeys() {
+      return [
+        'xp',
+        'totalXp',
+        'totalXP',
+        'divisionTier',
+        'divisionKey',
+        'divisionLabel',
+        'levelLabel',
+        'totalXpLabel',
+        'nextLevelXp',
+        'xpToNextLevel',
+        'levelProgressPercent',
+        'progressionUpdatedAt',
+        'rawXpBeforeDailyCap',
+        'rawXpBeforeActivityCap',
+        'baseCompletionXp',
+        'distanceXp',
+        'durationXp',
+        'planCompletionBonusXp',
+        'activityCapApplied',
+        'dailyCapDate',
+        'dailyXpBefore',
+        'dailyXpAfter',
+        'dailyCapApplied',
+        'streakBonusXp',
+        'streakMilestoneDays',
+        'streakBonusCapped',
+        // The ledger of which streak milestones have already been paid. An
+        // owner who could reset this could re-earn every milestone bonus.
+        'highestPaidStreakMilestoneDays',
+        'previousTotalXp',
+        'nextTotalXp',
+        'previousLevel',
+        'nextLevel',
+        'previousDivisionKey',
+        'nextDivisionKey',
+        'previousLevelProgressPercent',
+        'nextLevelProgressPercent',
+        'nextLevelXpTarget',
+        'nextXpToNextLevel',
+        'monthlyPeriod',
+        'monthlyXpBefore',
+        'monthlyXpAfter',
+        'plannedWorkoutBonusApplied',
+        'plannedWorkoutRecorded',
+        'plannedWorkoutId',
+        'plannedWorkoutMatchedBy',
+        'weeklyXp',
+        'weeklyXP',
+        'monthlyXp',
+        'monthlyXP',
+        'monthlyXpLabel',
+        'streak',
+        'streakCount',
+        'lastStreakRunDate',
+        'streakUpdatedAt',
+        'previousStreak',
+        'nextStreak',
+        'previousStreakRunDate',
+        'nextStreakRunDate',
+        'longestStreak',
+        'longestStreakLabel',
+        'totalDistanceMeters',
+        'totalDistanceLabel',
+        'level',
+        'rank',
+        'leaderboardScore',
+        'scoreXp',
+        'scoreXP',
+        'subscriptionStatus',
+        'subscriptionPrivilegeState',
+        'userRole',
+        'adminPrivilegeState',
+        'expertPrivilegeState',
+        'validationStatus',
+        'validatedActivityContributionState',
+        'countsTowardProgression',
+        'coolDownXpAwarded',
+        'coolDownXpAwardedAt',
+        'coolDownProgressionEventId',
+        'backendSchedulingStatus',
+        'lastScheduledAt',
+        'deliveryState',
+        'serverManagedTokenState',
+        'moderationStatus',
+        'resolutionStatus',
+        'publishedAt',
+        'approvedAt',
+        'reviewedByAdminId',
+        'publishedByAdminId',
+        'displayName',
+        'avatarInitials',
+        'nickname',
+        'nicknameKey',
+        'nicknameCanonical',
+        'nicknameIndexKey',
+        'socialDiscoveryStatus',
+        'socialListSortKey',
+        'avatarUrl',
+        'avatarObjectPath',
+        'avatarPreviousObjectPath',
+        'avatarUpdatedAt'
+      ];
+    }
+
+    function doesNotTouchBackendOwnedKeys() {
+      return !request.resource.data.keys().hasAny(backendOwnedKeys());
+    }
+
+    function doesNotChangeBackendOwnedKeys() {
+      return !request.resource.data.diff(resource.data).affectedKeys().hasAny(backendOwnedKeys());
+    }
+
+    function userProfileWritableKeys() {
+      return [
+        'fullName',
+        'dateOfBirth',
+        'ageYears',
+        'weightKg',
+        'locationLabel',
+        'fitnessLevel',
+        'goals',
+        'availability',
+        'planCautiousness',
+        'healthSafetyReadiness',
+        'publicStatsHidden',
+        'updatedAt'
+      ];
+    }
+
+    function affectedUserProfileKeys() {
+      return request.resource.data.diff(resource.data).affectedKeys();
+    }
+
+    function hasProfileField(field) {
+      return field in request.resource.data;
+    }
+
+    function changesProfileField(field) {
+      return affectedUserProfileKeys().hasAny([field]);
+    }
+
+    function validProfileStringField(field) {
+      return !hasProfileField(field)
+        || (request.resource.data[field] is string
+          && request.resource.data[field].size() > 0
+          && request.resource.data[field].matches('^[^\\n\\r\\t]{1,80}$'));
+    }
+
+    function validChangedProfileStringField(field) {
+      return !changesProfileField(field) || validProfileStringField(field);
+    }
+
+    function validProfileShortStringField(field) {
+      return !hasProfileField(field)
+        || (request.resource.data[field] is string
+          && request.resource.data[field].size() > 0
+          && request.resource.data[field].matches('^[^\\n\\r\\t]{1,30}$'));
+    }
+
+    function validChangedProfileShortStringField(field) {
+      return !changesProfileField(field) || validProfileShortStringField(field);
+    }
+
+    function validProfileInitials() {
+      return !hasProfileField('avatarInitials')
+        || (request.resource.data.avatarInitials is string
+          && request.resource.data.avatarInitials.matches('^[A-Z]{1,3}$'));
+    }
+
+    function validProfileNicknameKey() {
+      return !hasProfileField('nicknameKey')
+        || (request.resource.data.nicknameKey is string
+          && request.resource.data.nicknameKey.matches('^[a-z0-9][a-z0-9-]{0,29}$'));
+    }
+
+    function validChangedProfileNicknameKey() {
+      return !changesProfileField('nicknameKey') || validProfileNicknameKey();
+    }
+
+    function validProfileDateOfBirth() {
+      return !hasProfileField('dateOfBirth')
+        || (request.resource.data.dateOfBirth is string
+          && request.resource.data.dateOfBirth.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}$'));
+    }
+
+    function validChangedProfileDateOfBirth() {
+      return !changesProfileField('dateOfBirth') || validProfileDateOfBirth();
+    }
+
+    function validProfileLocationLabel() {
+      return !hasProfileField('locationLabel')
+        || (request.resource.data.locationLabel is string
+          && request.resource.data.locationLabel.matches('^[^\\n\\r\\t]{1,68}, Singapore$'));
+    }
+
+    function validChangedProfileLocationLabel() {
+      return !changesProfileField('locationLabel') || validProfileLocationLabel();
+    }
+
+    function validProfileNicknameClaimAfter() {
+      return hasProfileField('nicknameKey')
+        && existsAfter(/databases/$(database)/documents/nicknameClaims/$(request.resource.data.nicknameKey))
+        && getAfter(/databases/$(database)/documents/nicknameClaims/$(request.resource.data.nicknameKey)).data.ownerUid == request.auth.uid
+        && getAfter(/databases/$(database)/documents/nicknameClaims/$(request.resource.data.nicknameKey)).data.nicknameKey == request.resource.data.nicknameKey;
+    }
+
+    function validProfileNicknameClaimForChangedNickname() {
+      return !(changesProfileField('nickname')
+          || changesProfileField('nicknameKey'))
+        || validProfileNicknameClaimAfter();
+    }
+
+    function validChangedProfileInitials() {
+      return !changesProfileField('avatarInitials') || validProfileInitials();
+    }
+
+    function validProfileAgeYears() {
+      return !hasProfileField('ageYears')
+        || (request.resource.data.ageYears is int
+          && request.resource.data.ageYears >= 13
+          && request.resource.data.ageYears <= 100);
+    }
+
+    function validChangedProfileAgeYears() {
+      return !changesProfileField('ageYears') || validProfileAgeYears();
+    }
+
+    function validProfileWeightKg() {
+      return !hasProfileField('weightKg')
+        || ((request.resource.data.weightKg is int
+          || request.resource.data.weightKg is float)
+          && request.resource.data.weightKg >= 30
+          && request.resource.data.weightKg <= 250);
+    }
+
+    function validChangedProfileWeightKg() {
+      return !changesProfileField('weightKg') || validProfileWeightKg();
+    }
+
+    function validProfileUpdatedAt() {
+      return !hasProfileField('updatedAt')
+        || request.resource.data.updatedAt is int
+        || request.resource.data.updatedAt is timestamp;
+    }
+
+    function validChangedProfileUpdatedAt() {
+      return !changesProfileField('updatedAt') || validProfileUpdatedAt();
+    }
+
+    function validProfileAvailability() {
+      return !hasProfileField('availability')
+        || (request.resource.data.availability is map
+          && request.resource.data.availability.keys().hasOnly([
+            'weeklySessions',
+            'preferredDays',
+            'preferredTime',
+            'sessionLengthMinutes'
+          ])
+          && request.resource.data.availability.weeklySessions is string
+          && request.resource.data.availability.preferredDays is list
+          && request.resource.data.availability.preferredTime is string
+          && request.resource.data.availability.sessionLengthMinutes is string);
+    }
+
+    function validChangedProfileAvailability() {
+      return !changesProfileField('availability') || validProfileAvailability();
+    }
+
+    function validProfileHealthSafetyReadiness() {
+      return !hasProfileField('healthSafetyReadiness')
+        || (request.resource.data.healthSafetyReadiness is map
+          && request.resource.data.healthSafetyReadiness.keys().hasOnly([
+            'comfort',
+            'activitySymptoms',
+            'recentRunningConsistency',
+            'currentWeeklyRunFrequency',
+            'continuousRunCapacity',
+            'runningPlace',
+            'motivationStyle'
+          ])
+          && request.resource.data.healthSafetyReadiness.comfort is string
+          && request.resource.data.healthSafetyReadiness.activitySymptoms is list
+          && request.resource.data.healthSafetyReadiness.recentRunningConsistency is string
+          && request.resource.data.healthSafetyReadiness.currentWeeklyRunFrequency is string
+          && request.resource.data.healthSafetyReadiness.continuousRunCapacity is string
+          && request.resource.data.healthSafetyReadiness.runningPlace is string
+          && request.resource.data.healthSafetyReadiness.motivationStyle is string);
+    }
+
+    function validChangedProfileHealthSafetyReadiness() {
+      return !changesProfileField('healthSafetyReadiness')
+        || validProfileHealthSafetyReadiness();
+    }
+
+    // The owner's "keep my running record private" preference. It is a display
+    // preference, not a scoring value: no XP, level, rank, streak, leaderboard
+    // score, or entitlement is derived from it, so the owner may write it
+    // directly. What it actually suppresses is decided server-side, by the
+    // `getRunnerPublicProfile` projection — this rule only governs storage.
+    function validProfilePublicStatsHidden() {
+      return !hasProfileField('publicStatsHidden')
+        || request.resource.data.publicStatsHidden is bool;
+    }
+
+    function validChangedProfilePublicStatsHidden() {
+      return !changesProfileField('publicStatsHidden')
+        || validProfilePublicStatsHidden();
+    }
+
+    function validProfileGoals() {
+      return !hasProfileField('goals') || request.resource.data.goals is list;
+    }
+
+    function validChangedProfileGoals() {
+      return !changesProfileField('goals') || validProfileGoals();
+    }
+
+    function validUserProfileCreateData() {
+      return hasOnlyAllowedKeys(userProfileWritableKeys())
+        && validProfileStringField('displayName')
+        && validProfileStringField('fullName')
+        && validProfileInitials()
+        && validProfileDateOfBirth()
+        && validProfileAgeYears()
+        && validProfileWeightKg()
+        && validProfileLocationLabel()
+        && validProfileStringField('fitnessLevel')
+        && validProfileGoals()
+        && validProfileAvailability()
+        && validProfileStringField('planCautiousness')
+        && validProfileHealthSafetyReadiness()
+        && validProfilePublicStatsHidden()
+        && validProfileUpdatedAt();
+    }
+
+    function validUserProfileUpdateData() {
+      return changesOnlyAllowedKeys(userProfileWritableKeys())
+        && validChangedProfileStringField('displayName')
+        && validChangedProfileStringField('fullName')
+        && validChangedProfileInitials()
+        && validChangedProfileDateOfBirth()
+        && validChangedProfileAgeYears()
+        && validChangedProfileWeightKg()
+        && validChangedProfileLocationLabel()
+        && validChangedProfileStringField('fitnessLevel')
+        && validChangedProfileGoals()
+        && validChangedProfileAvailability()
+        && validChangedProfileStringField('planCautiousness')
+        && validChangedProfileHealthSafetyReadiness()
+        && validChangedProfilePublicStatsHidden()
+        && validChangedProfileUpdatedAt();
+    }
+
+    function validNicknameClaimData(nicknameKey) {
+      return hasOnlyAllowedKeys([
+          'ownerUid',
+          'nickname',
+          'nicknameKey',
+          'updatedAt'
+        ])
+        && request.resource.data.ownerUid == request.auth.uid
+        && request.resource.data.nicknameKey == nicknameKey
+        && request.resource.data.nickname is string
+        && request.resource.data.nickname.size() > 0
+        && request.resource.data.nickname.matches('^[^\\n\\r\\t]{1,30}$')
+        && request.resource.data.nicknameKey.matches('^[a-z0-9][a-z0-9-]{0,29}$')
+        && validProfileUpdatedAt();
+    }
+
+    function generatedPlanWritableKeys() {
+      return [
+        'planId',
+        'planKind',
+        'title',
+        'subtitle',
+        'sourceLabel',
+        'startsOnDate',
+        'durationWeeks',
+        'safetyBand',
+        'templateKind',
+        'family',
+        'familyCategory',
+        'familyReason',
+        'supportStyleLabel',
+        'weeklyFrequencyLabel',
+        'preferredScheduleLabel',
+        'sessionDurationLabel',
+        'safetyNote',
+        'clientDisplayStatus',
+        'weeks',
+        'createdAt',
+        'updatedAt'
+      ];
+    }
+
+    function generatedPlanWeekWritableKeys() {
+      return ['weekNumber', 'title', 'focus', 'workouts'];
+    }
+
+    function generatedPlanWorkoutWritableKeys() {
+      return [
+        'dayLabel',
+        'title',
+        'durationMinutes',
+        'kind',
+        'intensity',
+        'description',
+        'steps',
+        'supportiveNote',
+        'detail',
+        'scheduleTimeLabel'
+      ];
+    }
+
+    function generatedPlanDetailWritableKeys() {
+      return ['metrics', 'breakdown', 'effortGuide', 'coachNotes'];
+    }
+
+    function validGeneratedPlanStringList(values, maxSize) {
+      return values is list
+        && values.size() <= maxSize
+        && (values.size() < 1 || values[0] is string)
+        && (values.size() < 2 || values[1] is string)
+        && (values.size() < 3 || values[2] is string);
+    }
+
+    function validGeneratedPlanWeeks(weeks) {
+      return weeks is list
+        && weeks.size() > 0
+        && weeks.size() <= 8
+        && validGeneratedPlanWeek(weeks[0]);
+    }
+
+    function validGeneratedPlanWeek(week) {
+      return week is map
+        && week.keys().hasOnly(generatedPlanWeekWritableKeys())
+        && week.weekNumber is int
+        && week.title is string
+        && week.focus is string
+        && validGeneratedPlanWorkouts(week.workouts);
+    }
+
+    function validGeneratedPlanWorkouts(workouts) {
+      return workouts is list
+        && workouts.size() <= 7
+        && (workouts.size() < 1 || validGeneratedPlanWorkout(workouts[0]));
+    }
+
+    function validGeneratedPlanWorkout(workout) {
+      return workout is map
+        && workout.keys().hasOnly(generatedPlanWorkoutWritableKeys())
+        && workout.dayLabel is string
+        && workout.title is string
+        && workout.durationMinutes is int
+        && workout.kind is string
+        && workout.intensity is string
+        && workout.description is string
+        && validGeneratedPlanStringList(workout.steps, 3)
+        && workout.supportiveNote is string
+        && validGeneratedPlanDetail(workout.detail)
+        && (!workout.keys().hasAny(['scheduleTimeLabel'])
+          || workout.scheduleTimeLabel is string);
+    }
+
+    function validGeneratedPlanDetail(detail) {
+      return detail is map
+        && detail.keys().hasOnly(generatedPlanDetailWritableKeys())
+        && validGeneratedPlanMetrics(detail.metrics)
+        && validGeneratedPlanBreakdown(detail.breakdown)
+        && detail.effortGuide is string
+        && validGeneratedPlanStringList(detail.coachNotes, 3);
+    }
+
+    function validGeneratedPlanMetrics(metrics) {
+      return metrics is list
+        && metrics.size() <= 4;
+    }
+
+    function validGeneratedPlanBreakdown(breakdown) {
+      return breakdown is list
+        && breakdown.size() <= 8;
+    }
+
+    function validGeneratedPlanData(uid) {
+      return hasOnlyAllowedKeys(generatedPlanWritableKeys())
+        && request.resource.data.planId is string
+        && request.resource.data.planKind == 'onboardingBased'
+        && request.resource.data.title is string
+        && request.resource.data.subtitle is string
+        && request.resource.data.sourceLabel is string
+        && (!request.resource.data.keys().hasAny(['startsOnDate'])
+          || request.resource.data.startsOnDate is string)
+        && request.resource.data.durationWeeks is int
+        && request.resource.data.safetyBand is string
+        && request.resource.data.templateKind is string
+        && validGeneratedPlanFamilyFields()
+        && request.resource.data.familyReason is string
+        && request.resource.data.supportStyleLabel is string
+        && request.resource.data.weeklyFrequencyLabel is string
+        && request.resource.data.preferredScheduleLabel is string
+        && request.resource.data.sessionDurationLabel is string
+        && request.resource.data.safetyNote is string
+        && request.resource.data.clientDisplayStatus in [
+          'generatedPlan',
+          'safetyReadiness'
+        ]
+        && validGeneratedPlanWeeksForStatus()
+        && validGeneratedPlanTimestamp('createdAt')
+        && validGeneratedPlanTimestamp('updatedAt')
+        && validProfileUpdatedAt()
+        && doesNotTouchBackendOwnedKeys();
+    }
+
+    function validGeneratedPlanTimestamp(fieldName) {
+      return !request.resource.data.keys().hasAny([fieldName])
+        || request.resource.data[fieldName] is int
+        || request.resource.data[fieldName] is timestamp
+        || request.resource.data[fieldName] is string;
+    }
+
+    function validGeneratedPlanFamilyFields() {
+      return (request.resource.data.clientDisplayStatus == 'generatedPlan'
+          && request.resource.data.family is string
+          && request.resource.data.familyCategory is string)
+        || (request.resource.data.clientDisplayStatus == 'safetyReadiness'
+          && request.resource.data.family == null
+          && request.resource.data.familyCategory == null);
+    }
+
+    function validGeneratedPlanWeeksForStatus() {
+      return (request.resource.data.clientDisplayStatus == 'generatedPlan'
+          && validGeneratedPlanWeeks(request.resource.data.weeks))
+        || (request.resource.data.clientDisplayStatus == 'safetyReadiness'
+          && request.resource.data.weeks is list
+          && request.resource.data.weeks.size() == 0);
+    }
+
+    // Defence-in-depth ONLY — this is NOT the primary suspension control, and
+    // must not be mistaken for one. The primary control is the admin
+    // console's setUserAccountStatus: the moment an operator sets
+    // users/{uid}.accountStatus to a blocking value, that SAME action
+    // disables the user's Firebase Auth account and revokes their refresh
+    // tokens, which is what actually stops them from signing in or minting a
+    // new ID token. This rule only closes the residual window in which an ID
+    // token issued and cached BEFORE that disable is still unexpired
+    // (Firebase ID tokens live up to ~1 hour) and would otherwise keep
+    // passing these rules. A missing users/{uid} doc, or a missing/
+    // unrecognised accountStatus value, is treated as NOT suspended, so every
+    // already-stored document keeps its current behaviour.
+    //
+    // 'deleting' is in the same list for the same reason, under a different
+    // primary control: requestAccountDeletion revokes refresh tokens and
+    // disables the Auth user in the same call that sets the status, so this
+    // again only closes the unexpired-ID-token window — here, the window in
+    // which a runner who has just deleted their account could still write
+    // something that the erase fan-out has already swept past.
+    //
+    // Every get() here bills a document read, so this is applied only to the
+    // specific client write paths where a suspended user could still
+    // plausibly harm another user or game moderation (see firestore.rules
+    // call sites) — never blanket-applied to every collection, and never
+    // applied to a read rule.
+    function isNotSuspended() {
+      return !isSignedIn()
+        || !exists(/databases/$(database)/documents/users/$(request.auth.uid))
+        || !('accountStatus' in get(/databases/$(database)/documents/users/$(request.auth.uid)).data)
+        || !(get(/databases/$(database)/documents/users/$(request.auth.uid)).data.accountStatus in ['suspended', 'banned', 'deleting']);
+    }
+
+    function hasTrustedFriendship(authorUid) {
+      return isSignedIn()
+        && exists(/databases/$(database)/documents/users/$(request.auth.uid)/friends/$(authorUid))
+        && exists(/databases/$(database)/documents/users/$(authorUid)/friends/$(request.auth.uid));
+    }
+
+    function hasNoDirectionalBlock(authorUid) {
+      return !exists(/databases/$(database)/documents/users/$(request.auth.uid)/blockedUsers/$(authorUid))
+        && !exists(/databases/$(database)/documents/users/$(authorUid)/blockedUsers/$(request.auth.uid));
+    }
+
+    function canReadFeedAuthor(authorUid) {
+      return isSignedIn()
+        && hasNoDirectionalBlock(authorUid)
+        && (authorUid == request.auth.uid || hasTrustedFriendship(authorUid));
+    }
+
+    function canReadFeedPost(postId) {
+      return exists(/databases/$(database)/documents/feedPosts/$(postId))
+        && get(/databases/$(database)/documents/feedPosts/$(postId)).data.status == 'published'
+        && canReadFeedAuthor(
+          get(/databases/$(database)/documents/feedPosts/$(postId)).data.authorUid
+        );
+    }
+
+    function validFeedCommentBody(body) {
+      return body is string
+        && body.size() >= 1
+        && body.size() <= 500
+        && body.matches('^[^\\s](.*[^\\s])?$');
+    }
+
+    function matchesCallerProfileSnapshot() {
+      return exists(/databases/$(database)/documents/userProfiles/$(request.auth.uid))
+        && request.resource.data.authorDisplayName
+          == get(/databases/$(database)/documents/userProfiles/$(request.auth.uid)).data.displayName
+        && request.resource.data.authorAvatarInitials
+          == get(/databases/$(database)/documents/userProfiles/$(request.auth.uid)).data.avatarInitials
+        && (!request.resource.data.keys().hasAny(['authorLevelLabel'])
+          || request.resource.data.authorLevelLabel
+            == get(/databases/$(database)/documents/userProfiles/$(request.auth.uid)).data.levelLabel);
+    }
+
+    function validFeedCommentCreate(postId) {
+      return canReadFeedPost(postId)
+        && hasOnlyAllowedKeys([
+          'authorUid',
+          'authorDisplayName',
+          'authorAvatarInitials',
+          'authorLevelLabel',
+          'body',
+          'createdAt',
+          'updatedAt'
+        ])
+        && request.resource.data.authorUid == request.auth.uid
+        && request.resource.data.createdAt == request.time
+        && request.resource.data.updatedAt == request.time
+        && validFeedCommentBody(request.resource.data.body)
+        && matchesCallerProfileSnapshot();
+    }
+
+    function validFeedCommentUpdate(postId) {
+      return canReadFeedPost(postId)
+        && resource.data.authorUid == request.auth.uid
+        && request.resource.data.authorUid == resource.data.authorUid
+        && request.resource.data.authorDisplayName == resource.data.authorDisplayName
+        && request.resource.data.authorAvatarInitials == resource.data.authorAvatarInitials
+        && request.resource.data.authorLevelLabel == resource.data.authorLevelLabel
+        && request.resource.data.createdAt == resource.data.createdAt
+        && changesOnlyAllowedKeys(['body', 'updatedAt'])
+        && request.resource.data.updatedAt == request.time
+        && validFeedCommentBody(request.resource.data.body);
+    }
+
+    function notificationInboxMutableKeys() {
+      return ['readAt', 'deletedAt', 'updatedAt'];
+    }
+
+    function notificationInboxClientManagedKeys() {
+      return [
+        'ownerUid',
+        'clientManaged',
+        'title',
+        'body',
+        'createdAt',
+        'data',
+        'readAt',
+        'deletedAt',
+        'updatedAt'
+      ];
+    }
+
+    function validNotificationInboxClientManagedData(uid) {
+      return request.resource.data.ownerUid == uid
+        && request.resource.data.clientManaged == true
+        && request.resource.data.title is string
+        && request.resource.data.title.size() > 0
+        && request.resource.data.title.size() <= 120
+        && request.resource.data.body is string
+        && request.resource.data.body.size() > 0
+        && request.resource.data.body.size() <= 500
+        && request.resource.data.createdAt is timestamp
+        && request.resource.data.updatedAt is timestamp
+        && (!('data' in request.resource.data) || request.resource.data.data is map)
+        && (!('readAt' in request.resource.data) || request.resource.data.readAt is timestamp)
+        && (!('deletedAt' in request.resource.data) || request.resource.data.deletedAt is timestamp)
+        && hasOnlyAllowedKeys(notificationInboxClientManagedKeys())
+        && doesNotTouchBackendOwnedKeys();
+    }
+
+    function validNotificationInboxMutableValues() {
+      return validNotificationInboxMutableValue('readAt')
+        && validNotificationInboxMutableValue('deletedAt')
+        && validNotificationInboxMutableValue('updatedAt');
+    }
+
+    function validNotificationInboxMutableValue(field) {
+      return !request.resource.data.diff(resource.data).affectedKeys().hasAny([field])
+        || request.resource.data[field] is timestamp;
+    }
+
+    function isSnapshottedChallengeMember(challengeId) {
+      return isSignedIn()
+        && exists(/databases/$(database)/documents/challengeInstances/$(challengeId))
+        && request.auth.uid in get(/databases/$(database)/documents/challengeInstances/$(challengeId)).data.rosterUids;
+    }
+
+    // The Challenge result ceremony's one-shot marker: the epoch millis of the
+    // newest result whose celebration the runner has already been shown. It is
+    // the single field the owner may write under users/{uid}, and deliberately
+    // so — it carries no trusted state. Outcome, badge ownership, and every
+    // metre stay backend-owned in challengeHistory / challengeBadges, and the
+    // worst a tampered value can do is suppress or replay the runner's own
+    // celebration.
+    function validChallengeResultSeenData() {
+      return request.resource.data.keys().hasOnly(['lastSeenResultEndedAtMs'])
+        && request.resource.data.lastSeenResultEndedAtMs is int
+        && request.resource.data.lastSeenResultEndedAtMs > 0;
+    }
+
+    match /users/{uid} {
+      allow read: if isOwner(uid);
+      allow create, update, delete: if false;
+
+      match /friends/{friendUid} {
+        allow get: if isOwner(uid);
+        allow list: if isOwner(uid)
+          && request.query.limit != null
+          && request.query.limit <= 30;
+        allow create, update, delete: if false;
+      }
+
+      match /blockedUsers/{blockedUid} {
+        allow get: if isOwner(uid);
+        allow list: if isOwner(uid)
+          && request.query.limit != null
+          && request.query.limit <= 30;
+        allow create, update, delete: if false;
+      }
+
+      match /friendRequests/{otherUid} {
+        allow get: if isOwner(uid);
+        allow list: if isOwner(uid)
+          && request.query.limit != null
+          && request.query.limit <= 30;
+        allow create, update, delete: if false;
+      }
+
+      match /hiddenFeedPosts/{postId} {
+        allow get: if isOwner(uid);
+        allow list: if isOwner(uid)
+          && request.query.limit != null
+          && request.query.limit <= 30;
+        allow create, update, delete: if false;
+      }
+
+      match /challengeHistory/{challengeId} {
+        allow get: if isOwner(uid);
+        allow list: if isOwner(uid)
+          && request.query.limit != null
+          && request.query.limit <= 30;
+        allow create, update, delete: if false;
+      }
+
+      match /challengeBadges/{tierId} {
+        allow get: if isOwner(uid);
+        allow list: if isOwner(uid)
+          && request.query.limit != null
+          && request.query.limit <= 30;
+        allow create, update, delete: if false;
+      }
+
+      // Presentation state, not trusted state (see validChallengeResultSeenData).
+      // The marker used to live only in device preferences, so deleting and
+      // reinstalling the app — or signing in on a second device — wiped it and
+      // replayed a badge ceremony the runner had already seen. Holding it on the
+      // account fixes both. It is never listed: the client reads the one document
+      // it writes, by id.
+      match /challengeState/{stateId} {
+        allow get: if isOwner(uid) && stateId == 'challengeResultSeen';
+        allow list: if false;
+        allow create: if isOwner(uid)
+          && stateId == 'challengeResultSeen'
+          && validChallengeResultSeenData();
+        // Monotonic: the marker is a high-water mark, so it may only move
+        // forward. A stale client can never rewind it and re-arm a ceremony.
+        allow update: if isOwner(uid)
+          && stateId == 'challengeResultSeen'
+          && validChallengeResultSeenData()
+          && request.resource.data.lastSeenResultEndedAtMs >= resource.data.lastSeenResultEndedAtMs;
+        allow delete: if false;
+      }
+    }
+
+    match /userProfiles/{uid} {
+      allow read: if isOwner(uid);
+      allow create: if isOwner(uid)
+        && validUserProfileCreateData()
+        && doesNotTouchBackendOwnedKeys();
+      allow update: if isOwner(uid)
+        && validUserProfileUpdateData()
+        && doesNotChangeBackendOwnedKeys();
+      allow delete: if false;
+    }
+
+    match /nicknameClaims/{nicknameKey} {
+      allow read, write: if false;
+    }
+
+    match /generatedPlans/{uid} {
+      allow read: if isOwner(uid);
+      allow create: if isOwner(uid) && validGeneratedPlanData(uid);
+      allow update: if isOwner(uid)
+        && changesOnlyAllowedKeys(generatedPlanWritableKeys())
+        && validGeneratedPlanData(uid)
+        && doesNotChangeBackendOwnedKeys();
+      allow delete: if false;
+    }
+
+    match /planProgress/{uid} {
+      allow get: if isOwner(uid);
+      allow list: if false;
+      allow create, update, delete: if false;
+    }
+
+    match /adaptivePlanEstimates/{uid} {
+      allow get: if isOwner(uid);
+      allow list: if false;
+      allow create, update, delete: if false;
+    }
+
+    match /agentGuidanceDaily/{document} {
+      allow read, write: if false;
+    }
+
+    match /homeGuideConsents/{uid} {
+      allow read, write: if false;
+    }
+
+    match /activities/{activityId} {
+      allow read: if isSignedIn() && resource.data.ownerUid == request.auth.uid;
+      allow create: if isSignedIn()
+        && request.resource.data.ownerUid == request.auth.uid
+        && request.resource.data.status == 'pending'
+        && hasOnlyAllowedKeys([
+          'ownerUid',
+          'status',
+          'source',
+          'activityType',
+          'startedAt',
+          'endedAt',
+          'durationSeconds',
+          'distanceMeters',
+          'averagePaceSecondsPerKm',
+          'routePrivacy',
+          'createdAt',
+          'updatedAt'
+        ])
+        && doesNotTouchBackendOwnedKeys();
+      allow update: if isSignedIn()
+        && resource.data.ownerUid == request.auth.uid
+        && request.resource.data.ownerUid == request.auth.uid
+        && resource.data.status == 'pending'
+        && request.resource.data.status == 'pending'
+        && changesOnlyAllowedKeys([
+          'ownerUid',
+          'status',
+          'source',
+          'activityType',
+          'startedAt',
+          'endedAt',
+          'durationSeconds',
+          'distanceMeters',
+          'averagePaceSecondsPerKm',
+          'routePrivacy',
+          'createdAt',
+          'updatedAt'
+        ])
+        && doesNotTouchBackendOwnedKeys()
+        && doesNotChangeBackendOwnedKeys();
+      allow delete: if false;
+    }
+
+    match /feedPosts/{postId} {
+      allow get: if resource.data.status == 'published'
+        && canReadFeedAuthor(resource.data.authorUid);
+      allow list: if request.query.limit != null
+        && request.query.limit <= 20
+        && resource.data.status == 'published'
+        && canReadFeedAuthor(resource.data.authorUid);
+      allow create, update, delete: if false;
+
+      match /likes/{uid} {
+        allow get: if canReadFeedPost(postId);
+        allow list: if false;
+        allow create: if canReadFeedPost(postId)
+          && uid == request.auth.uid
+          && hasOnlyAllowedKeys(['userUid', 'createdAt'])
+          && request.resource.data.userUid == request.auth.uid
+          && request.resource.data.createdAt == request.time;
+        allow update: if false;
+        allow delete: if canReadFeedPost(postId)
+          && uid == request.auth.uid
+          && resource.data.userUid == request.auth.uid;
+      }
+
+      match /comments/{commentId} {
+        allow get: if canReadFeedPost(postId);
+        allow list: if canReadFeedPost(postId)
+          && request.query.limit != null
+          && request.query.limit <= 20;
+        // isNotSuspended(): feed comments are visible to the author's
+        // friends, so a suspended user could otherwise keep harassing
+        // another user's post through new or edited comments.
+        allow create: if validFeedCommentCreate(postId) && isNotSuspended();
+        allow update: if validFeedCommentUpdate(postId) && isNotSuspended();
+        allow delete: if canReadFeedPost(postId)
+          && resource.data.authorUid == request.auth.uid;
+      }
+    }
+
+    match /runSummaries/{summaryId} {
+      allow get: if isSignedIn() && resource.data.ownerUid == request.auth.uid;
+      allow list: if isSignedIn()
+        && request.query.limit != null
+        && request.query.limit <= 30
+        && resource.data.ownerUid == request.auth.uid;
+      allow create, update, delete: if false;
+    }
+
+    match /progressionEvents/{eventId} {
+      allow read: if isSignedIn() && resource.data.ownerUid == request.auth.uid;
+      allow create, update, delete: if false;
+    }
+
+    match /leaderboardSnapshots/{snapshotId} {
+      allow read: if isSignedIn();
+      allow create, update, delete: if false;
+    }
+
+    match /leaderboardPeriods/{periodId} {
+      allow read: if isSignedIn();
+      allow create, update, delete: if false;
+    }
+
+    match /leaderboardCurrentViews/{uid} {
+      allow read: if isSignedIn() && uid == request.auth.uid;
+      allow create, update, delete: if false;
+    }
+
+    match /leaderboardUserRanks/{rankId} {
+      allow read: if isSignedIn() && resource.data.ownerUid == request.auth.uid;
+      allow create, update, delete: if false;
+    }
+
+    match /leaderboardContributions/{contributionId} {
+      allow read, create, update, delete: if false;
+    }
+
+    match /leaderboardAggregationLocks/{snapshotId} {
+      allow read, create, update, delete: if false;
+    }
+
+    match /leaderboardSeedRuns/{runId} {
+      allow read, create, update, delete: if false;
+    }
+
+    // leaderboardAdminCommands is written only by the admin console (Admin
+    // SDK) and consumed only by the leaderboardAdminCommandCreated Cloud
+    // Function trigger via Admin SDK; clients get no direct access.
+    match /leaderboardAdminCommands/{commandId} {
+      allow read, write: if false;
+    }
+
+    match /sharedRoutes/{routeId} {
+      allow read: if isSignedIn()
+        && (resource.data.ownerUid == request.auth.uid
+          || resource.data.visibilityStatus == 'published');
+      allow create: if isSignedIn()
+        && request.resource.data.ownerUid == request.auth.uid
+        && hasOnlyAllowedKeys([
+          'ownerUid',
+          'title',
+          'description',
+          'distanceMeters',
+          'estimatedDurationSeconds',
+          'difficulty',
+          'regionLabel',
+          'visibilityStatus',
+          'createdAt',
+          'updatedAt'
+        ])
+        && request.resource.data.visibilityStatus in ['private', 'draft']
+        && doesNotTouchBackendOwnedKeys();
+      allow update, delete: if false;
+    }
+
+    match /reports/{reportId} {
+      allow read: if isSignedIn() && resource.data.reporterUid == request.auth.uid;
+      // isNotSuspended(): a suspended user filing reports against another
+      // user is exactly the retaliatory/harassment-via-moderation-system
+      // case this Exception Queue capsule exists to close off.
+      //
+      // Report-a-user (targetType == 'user') additionally requires:
+      //   - Self-report rejection: targetId != request.auth.uid.
+      //   - A deterministic document id of `<reporterUid>_<targetId>`,
+      //     mirroring the dedup the feed report path already gets from
+      //     deterministicFeedIds(). Firestore classifies a set() against an
+      //     already-existing document as `update`, not `create`, so a
+      //     second report of the same target from the same reporter falls
+      //     straight through to `allow update: if false` below instead of
+      //     creating a duplicate — no extra rule logic needed for that half.
+      // Scoped to targetType == 'user' only: route/plan/activity reports
+      // have no client affordance yet and keep today's free-form report id.
+      allow create: if isSignedIn()
+        && isNotSuspended()
+        && request.resource.data.reporterUid == request.auth.uid
+        && request.resource.data.targetType != 'feedPost'
+        && (request.resource.data.targetType != 'user'
+          || (reportId == request.auth.uid + '_' + request.resource.data.targetId
+            && request.resource.data.targetId != request.auth.uid))
+        && hasOnlyAllowedKeys([
+          'reporterUid',
+          'targetType',
+          'targetId',
+          'reason',
+          'description',
+          'createdAt'
+        ])
+        && doesNotTouchBackendOwnedKeys();
+      allow update, delete: if false;
+    }
+
+    // accountDeletionCommands is written only by the requestAccountDeletion
+    // callable via Admin SDK and consumed only by the
+    // accountDeletionCommandCreated trigger. Denied to every client INCLUDING
+    // the runner whose deletion it records: the document is an operational
+    // record with a resume cursor, and a client that could write it could
+    // forge a completed erase or point one at another uid.
+    match /accountDeletionCommands/{uid} {
+      allow read, write: if false;
+    }
+
+    // moderationCommands is written only by the admin console (Admin SDK)
+    // and consumed only by the moderationCommandCreated Cloud Function
+    // trigger via Admin SDK; clients get no direct access.
+    match /moderationCommands/{commandId} {
+      allow read, write: if false;
+    }
+
+    match /notificationDevices/{uid}/tokens/{tokenFingerprint} {
+      allow read, write: if false;
+    }
+
+    match /notificationDeliveries/{deliveryId} {
+      allow read, write: if false;
+    }
+
+    match /notificationInbox/{uid}/items/{notificationId} {
+      allow read: if isOwner(uid);
+      allow create: if isOwner(uid)
+        && validNotificationInboxClientManagedData(uid);
+      allow update: if isOwner(uid)
+        && (
+          (
+            resource.data.ownerUid == uid
+            && request.resource.data.ownerUid == uid
+            && changesOnlyAllowedKeys(notificationInboxMutableKeys())
+            && validNotificationInboxMutableValues()
+          )
+          || (
+            resource.data.ownerUid == uid
+            && resource.data.clientManaged == true
+            && validNotificationInboxClientManagedData(uid)
+          )
+        );
+      allow delete: if false;
+    }
+
+    match /notificationPreferences/{uid} {
+      allow read: if isOwner(uid);
+      allow create: if isOwner(uid)
+        && request.resource.data.ownerUid == uid
+        && hasOnlyAllowedKeys([
+          'ownerUid',
+          'runReminderEnabled',
+          'restReminderEnabled',
+          'streakRiskEnabled',
+          'socialActivityEnabled',
+          'reminderTime',
+          'quietHoursStart',
+          'quietHoursEnd',
+          'updatedAt'
+        ])
+        && doesNotTouchBackendOwnedKeys();
+      allow update: if isOwner(uid)
+        && request.resource.data.ownerUid == uid
+        && changesOnlyAllowedKeys([
+          'ownerUid',
+          'runReminderEnabled',
+          'restReminderEnabled',
+          'streakRiskEnabled',
+          'socialActivityEnabled',
+          'reminderTime',
+          'quietHoursStart',
+          'quietHoursEnd',
+          'updatedAt'
+        ])
+        && doesNotChangeBackendOwnedKeys();
+      allow delete: if false;
+    }
+
+    match /challengeInstances/{challengeId} {
+      allow get: if isSignedIn()
+        && request.auth.uid in resource.data.rosterUids;
+      allow list: if isSignedIn()
+        && request.query.limit != null
+        && request.query.limit <= 20
+        && request.auth.uid in resource.data.rosterUids;
+      allow create, update, delete: if false;
+
+      match /participants/{participantUid} {
+        allow get: if isSnapshottedChallengeMember(challengeId);
+        allow list: if isSnapshottedChallengeMember(challengeId)
+          && request.query.limit != null
+          && request.query.limit <= 20;
+        allow create, update, delete: if false;
+      }
+    }
+
+    match /challengeInvitations/{inviteId} {
+      allow get: if isSignedIn()
+        && (resource.data.ownerUid == request.auth.uid
+          || resource.data.recipientUid == request.auth.uid);
+      allow list: if isSignedIn()
+        && request.query.limit != null
+        && request.query.limit <= 20
+        && (resource.data.ownerUid == request.auth.uid
+          || resource.data.recipientUid == request.auth.uid);
+      allow create, update, delete: if false;
+    }
+
+    match /challengeSlots/{uid} {
+      allow get: if isOwner(uid);
+      allow list: if false;
+      allow create, update, delete: if false;
+    }
+
+    match /challengeRewardGrants/{grantId} {
+      allow read, write: if false;
+    }
+
+    // Premium-lapse grace windows. Denied to every client INCLUDING the runner
+    // the hold belongs to, which is stricter than challengeSlots above and is
+    // deliberate: subscription state is private, and a readable hold — even an
+    // owner-scoped one — would be a lookup another roster member could probe
+    // for. The runner learns about their own grace window through the
+    // getActiveChallenge callable, which returns only the caller's, and the
+    // server is the only writer.
+    match /challengePremiumHolds/{uid} {
+      allow read, write: if false;
+    }
+
+    // config/paywall, config/featureAccess, and config/characterAccess are the
+    // only client-readable config docs: display-only paywall copy/pricing, the
+    // feature-tier map the premium upsell lists, and the premium-only character
+    // list the guide-character picker locks. All are written only by the admin
+    // console via Admin SDK. featureAccess ACCESS stays enforced server-side
+    // (Functions and rules); characterAccess is a cosmetic device-local choice
+    // gated client-side (no server value to protect), so the client reads it to
+    // render lock UI. Every other config doc stays fully denied.
+    match /config/{configDoc} {
+      allow read: if (configDoc == 'paywall' || configDoc == 'featureAccess'
+        || configDoc == 'characterAccess')
+        && isSignedIn();
+      allow write: if false;
+    }
+
+    match /badgeConfigs/{badgeId} {
+      allow read, write: if false;
+    }
+
+    // feedback is written only by the submitFeedback callable via Admin SDK
+    // and read only by the admin console via firebase-admin; clients get no
+    // direct access.
+    match /feedback/{feedbackId} {
+      allow read, write: if false;
+    }
+
+    // errorGroups is written only by the reportAppError callable via Admin
+    // SDK and read only by the admin console via firebase-admin; clients get
+    // no direct access. The reporters marker subcollection is the same.
+    match /errorGroups/{groupId} {
+      allow read, write: if false;
+      match /reporters/{reporterUid} {
+        allow read, write: if false;
+      }
+    }
+
+    // errorReportRateLimit backs the reportAppError callable's per-uid rate
+    // limit ledger. Each doc holds only a receivedAt timestamp — no error
+    // content — and is written/pruned only via Admin SDK; clients get no
+    // direct access.
+    match /errorReportRateLimit/{uid} {
+      allow read, write: if false;
+      match /events/{eventId} {
+        allow read, write: if false;
+      }
+    }
+
+    // adminNotifications is written only by Cloud Functions triggers via the
+    // Admin SDK and read only by the admin console; clients get no direct access.
+    match /adminNotifications/{notificationId} {
+      allow read, write: if false;
+    }
+
+    // newsletterSubscribers, newsletterCampaigns (and its deliveries
+    // subcollection), newsletterRateLimits, and mail are written and read
+    // only by Cloud Functions (subscribeNewsletter, confirmNewsletterSubscription,
+    // unsubscribeNewsletter, newsletterCampaignQueued, sweepUnconfirmedSubscribers)
+    // and the Trigger Email extension via the Admin SDK; clients get no
+    // direct access of any kind, including the public subscribe/confirm/
+    // unsubscribe endpoints themselves, which never touch the client SDK.
+    match /newsletterSubscribers/{subscriberId} {
+      allow read, write: if false;
+    }
+
+    match /newsletterCampaigns/{campaignId} {
+      allow read, write: if false;
+      match /deliveries/{subscriberId} {
+        allow read, write: if false;
+      }
+    }
+
+    match /newsletterRateLimits/{ipHash} {
+      allow read, write: if false;
+    }
+
+    match /mail/{mailId} {
+      allow read, write: if false;
+    }
+
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
