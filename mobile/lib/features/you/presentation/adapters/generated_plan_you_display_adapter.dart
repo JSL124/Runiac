@@ -3,21 +3,23 @@ import 'package:flutter/material.dart';
 import '../../../plan/domain/models/adaptive_plan_estimate_read_model.dart';
 import '../../../plan/domain/models/beginner_adaptive_plan_snapshot.dart';
 import '../../../plan/domain/models/plan_family.dart';
+import '../../../plan/domain/services/generated_plan_schedule.dart';
 import '../../../run/presentation/models/planned_run_context.dart';
 import '../../../plan/presentation/current_session_generated_plan.dart';
 import '../data/goal_plan_demo_snapshots.dart';
 import '../data/weekly_workout_demo_snapshots.dart';
 import '../data/you_overview_demo_snapshots.dart';
 
-const _weeklyDisplayDayLabels = [
-  'Mon',
-  'Tue',
-  'Wed',
-  'Thu',
-  'Fri',
-  'Sat',
-  'Sun',
-];
+/// Weekly schedule rows are laid out on the **calendar** week (Mon..Sun) the
+/// runner is currently in, and each row is filled from the plan by date.
+///
+/// A plan runs for seven days from whatever day onboarding finished, so a plan
+/// week and a calendar week only coincide for Monday-start plans. Comparing raw
+/// weekday numbers to decide past/today/future — what this file used to do —
+/// therefore called a Saturday-start plan's Monday session "Missed" on the day
+/// it was created, every week, while the notification builder was already
+/// scheduling that same session correctly for the following Monday. Dates are
+/// the only thing both sides agree on, so dates are what these rows use.
 const _generatedPlanFallbackTime = '7:30 AM';
 
 class GeneratedYouPlanDisplay {
@@ -27,14 +29,39 @@ class GeneratedYouPlanDisplay {
     required this.progressLabel,
     required this.progressValue,
     required this.scheduleRows,
+    this.planWeekRangeLabel = '',
+    this.calendarWeekRangeLabel = '',
   });
 
   final String weeklyTitle;
   final String subtitle;
+
+  /// Plan-week progress, e.g. `Week 1 of 4`. Deliberately scoped to the plan
+  /// week, not the calendar week the rows below show.
   final String progressLabel;
   final double progressValue;
   final List<YouPlanScheduleRow> scheduleRows;
 
+  /// Dates the plan week behind [progressLabel]/[progressValue] covers.
+  ///
+  /// Shown next to the progress label because on a mid-week-start plan the
+  /// counted sessions can all sit outside the seven rows on screen — a
+  /// Saturday signup reads `Week 1 of 4 · 15–21 Aug` while the rows below it
+  /// cover 10–16 Aug.
+  final String planWeekRangeLabel;
+
+  /// Dates the seven [scheduleRows] cover.
+  final String calendarWeekRangeLabel;
+
+  /// Session-local echo of a schedule edit, so the week view updates before the
+  /// persisted plan round-trips.
+  ///
+  /// The move is authorized on **dates**, not weekday order: the target is the
+  /// date the workout's own plan week assigns to [selection]'s weekday. That
+  /// date is not always on screen — a Saturday-start plan editing a Sunday
+  /// session can move it to a Monday that belongs to the same plan week but the
+  /// next calendar week — in which case the source row simply clears and the
+  /// workout reappears when the rows roll over.
   GeneratedYouPlanDisplay rescheduleWorkout(
     WeeklyWorkoutDetailSnapshot currentDetail,
     WorkoutScheduleEditSelection selection,
@@ -64,18 +91,19 @@ class GeneratedYouPlanDisplay {
     }
 
     final targetRow = scheduleRows[targetIndex];
-    if (!targetRow.isFuture) {
+    if (!targetRow.isFuture || targetRow.isOutsidePlan) {
       return this;
     }
 
     final updatedRows = [...scheduleRows];
-    final oldRow = scheduleRows[sourceIndex];
     updatedRows[sourceIndex] = _restRow(
-      oldRow.day,
-      weekdayIndex: oldRow.weekdayIndex,
-      isToday: oldRow.isToday,
-      isPast: oldRow.isPast,
-      isFuture: oldRow.isFuture,
+      sourceRow.day,
+      date: sourceRow.date,
+      weekdayIndex: sourceRow.weekdayIndex,
+      planWeekNumber: sourceRow.planWeekNumber,
+      isToday: sourceRow.isToday,
+      isPast: sourceRow.isPast,
+      isFuture: sourceRow.isFuture,
     );
 
     updatedRows[targetIndex] = YouPlanScheduleRow(
@@ -86,6 +114,8 @@ class GeneratedYouPlanDisplay {
       active: true,
       opensWorkoutDetail: true,
       detailSnapshot: updatedDetail,
+      date: targetRow.date,
+      planWeekNumber: targetRow.planWeekNumber,
       weekdayIndex: targetRow.weekdayIndex,
       isToday: targetRow.isToday,
       isPast: targetRow.isPast,
@@ -102,6 +132,8 @@ class GeneratedYouPlanDisplay {
       progressLabel: progressLabel,
       progressValue: progressValue,
       scheduleRows: updatedRows,
+      planWeekRangeLabel: planWeekRangeLabel,
+      calendarWeekRangeLabel: calendarWeekRangeLabel,
     );
   }
 }
@@ -194,20 +226,40 @@ GeneratedYouPlanDisplay? generatedYouPlanDisplayFromSnapshot(
   if (currentWeek == null) {
     return null;
   }
-  final currentWeekdayIndex = (currentDate ?? DateTime.now()).weekday;
+  final today = generatedPlanDateOnly(currentDate ?? DateTime.now());
+  final anchor = generatedPlanAnchorDate(snapshot, today: today);
+  final schedule = generatedPlanScheduleByDate(snapshot, start: anchor);
+  final calendarWeekDates = calendarWeekDatesFor(today);
+  final planWeekStart = generatedPlanAddDays(
+    anchor,
+    (currentWeek.weekNumber - 1) * kGeneratedPlanDaysPerWeek,
+  );
   final progress = _generatedPlanProgressFor(currentWeek, planProgress);
   return GeneratedYouPlanDisplay(
     weeklyTitle: snapshot.title,
     subtitle: snapshot.subtitle,
     progressLabel: 'Week ${currentWeek.weekNumber} of ${snapshot.weeks.length}',
     progressValue: progress?.value ?? 0,
-    scheduleRows: _weeklyScheduleRowsFor(
-      currentWeek,
-      snapshot,
-      currentWeekdayIndex,
-      planProgress: planProgress,
-      adaptiveEstimate: adaptiveEstimate,
+    planWeekRangeLabel: _dateRangeLabel(
+      planWeekStart,
+      generatedPlanAddDays(planWeekStart, kGeneratedPlanDaysPerWeek - 1),
     ),
+    calendarWeekRangeLabel: _dateRangeLabel(
+      calendarWeekDates.first,
+      calendarWeekDates.last,
+    ),
+    scheduleRows: [
+      for (final date in calendarWeekDates)
+        _scheduleRowForDate(
+          date: date,
+          planDay: schedule[date],
+          snapshot: snapshot,
+          today: today,
+          anchor: anchor,
+          planProgress: planProgress,
+          adaptiveEstimate: adaptiveEstimate,
+        ),
+    ],
   );
 }
 
@@ -222,7 +274,7 @@ _GeneratedPlanProgressSummary? _generatedPlanProgressFor(
   final plannedWorkoutIds = {
     for (final workout in currentWeek.workouts)
       if (isGeneratedPlanSession(workout))
-        _scheduledWorkoutIdFor(
+        generatedPlanScheduledWorkoutId(
           weekNumber: currentWeek.weekNumber,
           dayLabel: workout.dayLabel,
           title: workout.title,
@@ -329,12 +381,25 @@ BeginnerAdaptivePlanSnapshot? rescheduleGeneratedPlanSnapshot(
   if (sourceIndex == -1) {
     return null;
   }
-  final sourceWeekdayIndex = _weekdayIndexFor(
-    currentWeek.workouts[sourceIndex].dayLabel,
+  // Both ends are judged as dates inside this plan week's own seven-day window.
+  // Weekday order would say a Saturday-start plan cannot move anything to the
+  // coming Monday, because Monday sorts before Saturday.
+  final today = generatedPlanDateOnly(currentDate ?? DateTime.now());
+  final anchor = generatedPlanAnchorDate(snapshot, today: today);
+  final sourceDate = generatedPlanScheduledDate(
+    start: anchor,
+    weekNumber: currentWeek.weekNumber,
+    dayLabel: currentWeek.workouts[sourceIndex].dayLabel,
   );
-  final currentWeekdayIndex = (currentDate ?? DateTime.now()).weekday;
-  if (sourceWeekdayIndex <= currentWeekdayIndex ||
-      selection.weekdayIndex <= currentWeekdayIndex) {
+  final targetDate = generatedPlanScheduledDate(
+    start: anchor,
+    weekNumber: currentWeek.weekNumber,
+    dayLabel: selection.dayLabel,
+  );
+  if (sourceDate == null ||
+      targetDate == null ||
+      !sourceDate.isAfter(today) ||
+      !targetDate.isAfter(today)) {
     return null;
   }
 
@@ -403,11 +468,7 @@ BeginnerAdaptivePlanWeek? activeGeneratedPlanWeekFor(
   }
 
   final today = currentDate ?? DateTime.now();
-  final elapsedDays = DateTime(
-    today.year,
-    today.month,
-    today.day,
-  ).difference(startsOnDate).inDays;
+  final elapsedDays = generatedPlanDaysBetween(startsOnDate, today);
   if (elapsedDays <= 0) {
     return snapshot.weeks.first;
   }
@@ -426,11 +487,7 @@ int? activeGeneratedPlanDayIndexFor(
   }
 
   final today = currentDate ?? DateTime.now();
-  final elapsedDays = DateTime(
-    today.year,
-    today.month,
-    today.day,
-  ).difference(startsOnDate).inDays;
+  final elapsedDays = generatedPlanDaysBetween(startsOnDate, today);
   if (elapsedDays <= 0) {
     return 0;
   }
@@ -457,19 +514,11 @@ int? activeGeneratedPlanWeekdayFor(
     return null;
   }
 
-  return startsOnDate.add(Duration(days: dayIndex)).weekday;
+  return generatedPlanAddDays(startsOnDate, dayIndex).weekday;
 }
 
-DateTime? _dateFromPlanLabel(String? value) {
-  if (value == null || value.length != 10) {
-    return null;
-  }
-  final parsed = DateTime.tryParse(value);
-  if (parsed == null) {
-    return null;
-  }
-  return DateTime(parsed.year, parsed.month, parsed.day);
-}
+DateTime? _dateFromPlanLabel(String? value) =>
+    generatedPlanDateFromLabel(value);
 
 SafetyReadinessYouPlanDisplay? safetyReadinessYouPlanDisplayFromSnapshot(
   BeginnerAdaptivePlanSnapshot? snapshot,
@@ -510,10 +559,14 @@ SafetyReadinessYouPlanDisplay? safetyReadinessYouPlanDisplayFromSnapshot(
   );
 }
 
+/// The whole plan, week by week.
+///
+/// Unlike the weekly card this stays on **plan** weeks: each row is the plan's
+/// own seven-day window, ordered from the day the plan starts on, so a
+/// four-week plan is four rows of seven days with no blanks at either end.
 GoalPlanDisplaySnapshot? generatedGoalPlanDisplayFromSnapshot(
   BeginnerAdaptivePlanSnapshot? snapshot, {
   DateTime? currentDate,
-  GeneratedYouPlanDisplay? currentWeekDisplay,
 }) {
   if (snapshot == null || !isEligibleCurrentSessionGeneratedPlan(snapshot)) {
     return null;
@@ -523,7 +576,8 @@ GoalPlanDisplaySnapshot? generatedGoalPlanDisplayFromSnapshot(
     snapshot,
     currentDate: currentDate,
   );
-  final currentWeekdayIndex = (currentDate ?? DateTime.now()).weekday;
+  final today = generatedPlanDateOnly(currentDate ?? DateTime.now());
+  final anchor = generatedPlanAnchorDate(snapshot, today: today);
   return GoalPlanDisplaySnapshot(
     title: snapshot.title,
     planName: snapshot.title,
@@ -545,32 +599,44 @@ GoalPlanDisplaySnapshot? generatedGoalPlanDisplayFromSnapshot(
             snapshot.weeks.length,
             activeWeekNumber: activeWeek?.weekNumber,
           ),
-          dailyPlan:
-              activeWeek != null &&
-                  week.weekNumber == activeWeek.weekNumber &&
-                  currentWeekDisplay != null
-              ? [
-                  for (final row in currentWeekDisplay.scheduleRows)
-                    _goalPlanDailyRowFromScheduleRow(row),
-                ]
-              : _goalPlanDailyRowsFor(
-                  week,
-                  snapshot,
-                  currentWeekdayIndex: currentWeekdayIndex,
-                  activeWeekNumber: activeWeek?.weekNumber ?? 1,
-                ),
+          dateRangeLabel: _planWeekRangeLabelFor(
+            anchor: anchor,
+            weekNumber: week.weekNumber,
+          ),
+          dailyPlan: _goalPlanDailyRowsFor(
+            week,
+            snapshot,
+            anchor: anchor,
+            today: today,
+          ),
         ),
     ],
+  );
+}
+
+String _planWeekRangeLabelFor({
+  required DateTime anchor,
+  required int weekNumber,
+}) {
+  final start = generatedPlanAddDays(
+    anchor,
+    (weekNumber - 1) * kGeneratedPlanDaysPerWeek,
+  );
+  return _dateRangeLabel(
+    start,
+    generatedPlanAddDays(start, kGeneratedPlanDaysPerWeek - 1),
   );
 }
 
 GoalPlanDayDisplaySnapshot _goalPlanDailyRowFromScheduleRow(
   YouPlanScheduleRow row,
 ) {
+  final date = row.date;
   return GoalPlanDayDisplaySnapshot(
     weekday: _fullWeekdayLabelFor(row.day),
-    workoutType: row.title,
+    workoutType: row.isOutsidePlan ? '' : row.title,
     distanceOrTime: row.status,
+    dateLabel: date == null ? '' : _dayLabelFor(date),
     workoutDetail: row.detailSnapshot,
   );
 }
@@ -584,6 +650,9 @@ GoalPlanWeekStatus _goalPlanWeekStatusFor(
   if (week.weekNumber == currentWeekNumber) {
     return GoalPlanWeekStatus.current;
   }
+  if (week.weekNumber < currentWeekNumber) {
+    return GoalPlanWeekStatus.completed;
+  }
   if (week.weekNumber == totalWeeks) {
     return GoalPlanWeekStatus.goalWeek;
   }
@@ -593,28 +662,39 @@ GoalPlanWeekStatus _goalPlanWeekStatusFor(
 List<GoalPlanDayDisplaySnapshot> _goalPlanDailyRowsFor(
   BeginnerAdaptivePlanWeek week,
   BeginnerAdaptivePlanSnapshot snapshot, {
-  required int currentWeekdayIndex,
-  required int activeWeekNumber,
+  required DateTime anchor,
+  required DateTime today,
 }) {
   final workoutsByDay = {
     for (final workout in week.workouts) workout.dayLabel: workout,
   };
-  final occupiedWeekdayIndexes = {
-    for (final workout in week.workouts)
-      if (isGeneratedPlanSession(workout)) _weekdayIndexFor(workout.dayLabel),
-  };
+  final occupiedWeekdayIndexes = _occupiedScheduleWeekdaysFor(
+    snapshot,
+    weekNumber: week.weekNumber,
+    anchor: anchor,
+    today: today,
+  );
 
+  // Ordered from the day the plan starts on, so the seven rows read in the
+  // order they will actually be run.
   return [
-    for (final dayLabel in _weeklyDisplayDayLabels)
-      _goalPlanDailyRowFor(
-        dayLabel,
-        workoutsByDay[dayLabel],
-        week,
-        snapshot,
-        occupiedWeekdayIndexes: occupiedWeekdayIndexes,
-        currentWeekdayIndex: currentWeekdayIndex,
-        activeWeekNumber: activeWeekNumber,
-      ),
+    for (var offset = 0; offset < kGeneratedPlanDaysPerWeek; offset++)
+      () {
+        final date = generatedPlanAddDays(
+          anchor,
+          (week.weekNumber - 1) * kGeneratedPlanDaysPerWeek + offset,
+        );
+        final dayLabel = generatedPlanWeekdayLabelOf(date);
+        return _goalPlanDailyRowFor(
+          dayLabel,
+          workoutsByDay[dayLabel],
+          week,
+          snapshot,
+          date: date,
+          today: today,
+          occupiedWeekdayIndexes: occupiedWeekdayIndexes,
+        );
+      }(),
   ];
 }
 
@@ -623,89 +703,78 @@ GoalPlanDayDisplaySnapshot _goalPlanDailyRowFor(
   BeginnerAdaptiveWorkout? workout,
   BeginnerAdaptivePlanWeek week,
   BeginnerAdaptivePlanSnapshot snapshot, {
+  required DateTime date,
+  required DateTime today,
   required Set<int> occupiedWeekdayIndexes,
-  required int currentWeekdayIndex,
-  required int activeWeekNumber,
 }) {
   if (workout == null || !isGeneratedPlanSession(workout)) {
     return GoalPlanDayDisplaySnapshot(
       weekday: _fullWeekdayLabelFor(dayLabel),
       workoutType: 'Rest Day',
       distanceOrTime: 'Recovery',
+      dateLabel: _dayLabelFor(date),
     );
   }
 
-  final weekdayIndex = _weekdayIndexFor(dayLabel);
-  // Only the plan's actual active week can produce a startable "today" row.
-  // Every other week's matching weekday is either already elapsed or still
-  // ahead, even when its weekday label happens to match today's.
-  final isCurrentWeekToday =
-      week.weekNumber == activeWeekNumber &&
-      weekdayIndex == currentWeekdayIndex;
+  // A row is startable only on the exact calendar date it falls on. The same
+  // weekday in another plan week is a different date, so it never qualifies.
+  final isToday = date == today;
   return GoalPlanDayDisplaySnapshot(
     weekday: _fullWeekdayLabelFor(dayLabel),
     workoutType: workout.title,
     distanceOrTime: '${workout.durationMinutes} min',
+    dateLabel: _dayLabelFor(date),
     workoutDetail: _workoutDetailFor(
       workout,
       snapshot,
       weekNumber: week.weekNumber,
-      canStart: isCurrentWeekToday,
-      canEditSchedule: !isCurrentWeekToday,
+      canStart: isToday,
+      canEditSchedule: date.isAfter(today),
       occupiedWeekdayIndexes: occupiedWeekdayIndexes,
     ),
   );
 }
 
-List<YouPlanScheduleRow> _weeklyScheduleRowsFor(
-  BeginnerAdaptivePlanWeek currentWeek,
-  BeginnerAdaptivePlanSnapshot snapshot,
-  int currentWeekdayIndex, {
-  GeneratedPlanProgressDisplay? planProgress,
-  AdaptivePlanEstimateReadModel? adaptiveEstimate,
-}) {
-  final workoutsByDay = {
-    for (final workout in currentWeek.workouts) workout.dayLabel: workout,
-  };
-  final occupiedWeekdayIndexes = {
-    for (final workout in currentWeek.workouts)
-      if (isGeneratedPlanSession(workout)) _weekdayIndexFor(workout.dayLabel),
-  };
-
-  return [
-    for (final dayLabel in _weeklyDisplayDayLabels)
-      _scheduleRowForDay(
-        dayLabel,
-        workoutsByDay[dayLabel],
-        snapshot,
-        occupiedWeekdayIndexes,
-        currentWeekdayIndex,
-        weekNumber: currentWeek.weekNumber,
-        planProgress: planProgress,
-        adaptiveEstimate: adaptiveEstimate,
-      ),
-  ];
+String _dayLabelFor(DateTime date) {
+  return '${date.day} ${_shortMonthLabels[date.month - 1]}';
 }
 
-YouPlanScheduleRow _scheduleRowForDay(
-  String dayLabel,
-  BeginnerAdaptiveWorkout? workout,
-  BeginnerAdaptivePlanSnapshot snapshot,
-  Set<int> occupiedWeekdayIndexes,
-  int currentWeekdayIndex, {
-  required int weekNumber,
+YouPlanScheduleRow _scheduleRowForDate({
+  required DateTime date,
+  required GeneratedPlanScheduledDay? planDay,
+  required BeginnerAdaptivePlanSnapshot snapshot,
+  required DateTime today,
+  required DateTime anchor,
   GeneratedPlanProgressDisplay? planProgress,
   AdaptivePlanEstimateReadModel? adaptiveEstimate,
 }) {
-  final weekdayIndex = _weekdayIndexFor(dayLabel);
-  final isToday = weekdayIndex == currentWeekdayIndex;
-  final isPast = weekdayIndex < currentWeekdayIndex;
-  final isFuture = weekdayIndex > currentWeekdayIndex;
+  final dayLabel = generatedPlanWeekdayLabelOf(date);
+  final weekdayIndex = date.weekday;
+  final isToday = date == today;
+  final isPast = date.isBefore(today);
+  final isFuture = date.isAfter(today);
 
-  if (workout == null || !isGeneratedPlanSession(workout)) {
+  // No plan day at all: this calendar date falls before the plan started or
+  // after it ends. It is neither a session nor a rest day, so it stays blank.
+  if (planDay == null) {
+    return _outsidePlanRow(
+      dayLabel,
+      date: date,
+      weekdayIndex: weekdayIndex,
+      isToday: isToday,
+      isPast: isPast,
+      isFuture: isFuture,
+    );
+  }
+
+  final workout = planDay.workout;
+  final scheduledWorkoutId = planDay.scheduledWorkoutId;
+  if (workout == null || scheduledWorkoutId == null) {
     return _restRow(
       dayLabel,
+      date: date,
       weekdayIndex: weekdayIndex,
+      planWeekNumber: planDay.weekNumber,
       isToday: isToday,
       isPast: isPast,
       isFuture: isFuture,
@@ -716,11 +785,6 @@ YouPlanScheduleRow _scheduleRowForDay(
   final canEditSchedule = isFuture;
   final scheduleTimeLabel =
       workout.scheduleTimeLabel ?? _generatedPlanFallbackTime;
-  final scheduledWorkoutId = _scheduledWorkoutIdFor(
-    weekNumber: weekNumber,
-    dayLabel: workout.dayLabel,
-    title: workout.title,
-  );
   final completed = planProgress?.isCompleted(scheduledWorkoutId) ?? false;
   return YouPlanScheduleRow(
     dayLabel,
@@ -736,17 +800,21 @@ YouPlanScheduleRow _scheduleRowForDay(
     detailSnapshot: _workoutDetailFor(
       workout,
       snapshot,
-      weekNumber: weekNumber,
+      weekNumber: planDay.weekNumber,
       canStart: canStart,
       canEditSchedule: canEditSchedule,
       alreadyCompletedToday: completed && isToday,
       keepPlannedRunContext: completed && isToday,
       adaptiveEstimate: adaptiveEstimate,
-      occupiedWeekdayIndexes: {
-        ...occupiedWeekdayIndexes,
-        for (var day = DateTime.monday; day <= currentWeekdayIndex; day++) day,
-      },
+      occupiedWeekdayIndexes: _occupiedScheduleWeekdaysFor(
+        snapshot,
+        weekNumber: planDay.weekNumber,
+        anchor: anchor,
+        today: today,
+      ),
     ),
+    date: date,
+    planWeekNumber: planDay.weekNumber,
     weekdayIndex: weekdayIndex,
     isToday: isToday,
     isPast: isPast,
@@ -758,9 +826,52 @@ YouPlanScheduleRow _scheduleRowForDay(
   );
 }
 
+/// Weekdays the schedule editor must refuse for a workout in [weekNumber].
+///
+/// Two reasons a weekday is unavailable, and both have to be judged inside that
+/// plan week's own seven-day window: another session already owns it, or the
+/// date it maps to has already been reached. The second used to be "every
+/// weekday up to today's weekday number", which on a Saturday marked the coming
+/// Monday — two days away — as past.
+Set<int> _occupiedScheduleWeekdaysFor(
+  BeginnerAdaptivePlanSnapshot snapshot, {
+  required int weekNumber,
+  required DateTime anchor,
+  required DateTime today,
+}) {
+  final occupied = <int>{};
+  for (final week in snapshot.weeks) {
+    if (week.weekNumber != weekNumber) {
+      continue;
+    }
+    for (final workout in week.workouts) {
+      if (!isGeneratedPlanSession(workout)) {
+        continue;
+      }
+      final offset = generatedPlanWeekdayOffsetFor(workout.dayLabel);
+      if (offset != null) {
+        occupied.add(offset + DateTime.monday);
+      }
+    }
+  }
+  for (var offset = 0; offset < kGeneratedPlanDaysPerWeek; offset++) {
+    final date = generatedPlanScheduledDate(
+      start: anchor,
+      weekNumber: weekNumber,
+      dayLabel: kGeneratedPlanWeekdayLabels[offset],
+    );
+    if (date != null && !date.isAfter(today)) {
+      occupied.add(offset + DateTime.monday);
+    }
+  }
+  return occupied;
+}
+
 YouPlanScheduleRow _restRow(
   String dayLabel, {
+  required DateTime? date,
   required int weekdayIndex,
+  required int? planWeekNumber,
   required bool isToday,
   required bool isPast,
   required bool isFuture,
@@ -770,12 +881,63 @@ YouPlanScheduleRow _restRow(
     'Rest Day',
     '',
     Icons.hotel_outlined,
+    date: date,
+    planWeekNumber: planWeekNumber,
     weekdayIndex: weekdayIndex,
     isToday: isToday,
     isPast: isPast,
     isFuture: isFuture,
   );
 }
+
+/// A calendar day the plan does not cover.
+///
+/// Kept visually distinct from a rest day on purpose: a rest day is the plan
+/// working, an uncovered day is the plan not having started (or having ended).
+YouPlanScheduleRow _outsidePlanRow(
+  String dayLabel, {
+  required DateTime date,
+  required int weekdayIndex,
+  required bool isToday,
+  required bool isPast,
+  required bool isFuture,
+}) {
+  return YouPlanScheduleRow(
+    dayLabel,
+    '',
+    '',
+    Icons.remove,
+    date: date,
+    weekdayIndex: weekdayIndex,
+    isToday: isToday,
+    isPast: isPast,
+    isFuture: isFuture,
+    isOutsidePlan: true,
+  );
+}
+
+String _dateRangeLabel(DateTime start, DateTime end) {
+  if (start.month == end.month) {
+    return '${start.day}–${end.day} ${_shortMonthLabels[end.month - 1]}';
+  }
+  return '${start.day} ${_shortMonthLabels[start.month - 1]} – '
+      '${end.day} ${_shortMonthLabels[end.month - 1]}';
+}
+
+const _shortMonthLabels = [
+  'Jan',
+  'Feb',
+  'Mar',
+  'Apr',
+  'May',
+  'Jun',
+  'Jul',
+  'Aug',
+  'Sep',
+  'Oct',
+  'Nov',
+  'Dec',
+];
 
 WeeklyWorkoutDetailSnapshot _workoutDetailFor(
   BeginnerAdaptiveWorkout workout,
@@ -884,7 +1046,7 @@ PlannedRunContext _plannedRunContextFor(
     estimateConfidence: _plannedRunConfidenceFor(adaptiveEstimate),
     targetDistanceMeters: targetDistanceMeters,
     planEnrollmentId: snapshot.id,
-    scheduledWorkoutId: _scheduledWorkoutIdFor(
+    scheduledWorkoutId: generatedPlanScheduledWorkoutId(
       weekNumber: weekNumber,
       dayLabel: workout.dayLabel,
       title: workout.title,
@@ -903,19 +1065,6 @@ PlannedRunEstimateConfidence _plannedRunConfidenceFor(
     AdaptivePlanEstimateConfidence.none ||
     null => PlannedRunEstimateConfidence.none,
   };
-}
-
-String _scheduledWorkoutIdFor({
-  required int weekNumber,
-  required String dayLabel,
-  required String title,
-}) {
-  final titleSlug = title
-      .toLowerCase()
-      .replaceAll(RegExp('[^a-z0-9]+'), '-')
-      .replaceAll(RegExp(r'^-|-+$'), '');
-  final suffix = titleSlug.isEmpty ? 'workout' : titleSlug;
-  return 'week-$weekNumber-${dayLabel.toLowerCase()}-$suffix';
 }
 
 PlannedRunContext _restDayPlannedRunContext(
@@ -940,11 +1089,11 @@ PlannedRunContext _restDayPlannedRunContext(
 }
 
 int _weekdayIndexFor(String dayLabel) {
-  final index = _weeklyDisplayDayLabels.indexOf(dayLabel);
-  if (index == -1) {
+  final offset = generatedPlanWeekdayOffsetFor(dayLabel);
+  if (offset == null) {
     return 0;
   }
-  return index + DateTime.monday;
+  return offset + DateTime.monday;
 }
 
 String _fullWeekdayLabelFor(String dayLabel) {

@@ -1,13 +1,18 @@
 {
-  "_comment": "Copy to dart_define.local.json and fill in your own Firebase values, then run: flutter run --dart-define-from-file=dart_define.local.json. dart_define.local.json is gitignored. None of these are required for a default (offline) run.",
+  "_comment_1": "Copy to dart_define.local.json (gitignored), then run: flutter run --dart-define-from-file=dart_define.local.json. scripts/setup.sh does the copy for you.",
+  "_comment_2": "As shipped this file runs the app in OFFLINE mode: no Firebase project, no keys, no network. Every screen works against local demo data. Leave it exactly as-is if you only want to see the app run.",
+  "_comment_3": "To connect a real Firebase project: fill the five RUNIAC_FIREBASE_* values below, then flip RUNIAC_FIREBASE_PRODUCTION to \"true\". Flipping it to \"true\" while any of those four required values is still empty makes the app throw StateError on launch, on purpose — a half-configured backend must fail loudly rather than look like it worked.",
+  "_comment_4": "MAPBOX_PUBLIC_ACCESS_TOKEN is independent of Firebase. Without it, map surfaces render their placeholder instead of live tiles; everything else is unaffected.",
 
-  "RUNIAC_FIREBASE_PRODUCTION": "true",
-  "RUNIAC_FIREBASE_API_KEY": "your-firebase-web-api-key",
-  "RUNIAC_FIREBASE_APP_ID": "1:000000000000:ios:0000000000000000",
-  "RUNIAC_FIREBASE_MESSAGING_SENDER_ID": "000000000000",
-  "RUNIAC_FIREBASE_PROJECT_ID": "your-firebase-project-id",
-  "RUNIAC_FIREBASE_STORAGE_BUCKET": "your-firebase-project-id.firebasestorage.app",
-  "RUNIAC_APPCHECK_DEBUG_TOKEN": "00000000-0000-0000-0000-000000000000",
+  "RUNIAC_FIREBASE_PRODUCTION": "false",
 
-  "MAPBOX_PUBLIC_ACCESS_TOKEN": "pk.your-mapbox-public-token"
+  "RUNIAC_FIREBASE_API_KEY": "",
+  "RUNIAC_FIREBASE_APP_ID": "",
+  "RUNIAC_FIREBASE_MESSAGING_SENDER_ID": "",
+  "RUNIAC_FIREBASE_PROJECT_ID": "",
+  "RUNIAC_FIREBASE_STORAGE_BUCKET": "",
+
+  "RUNIAC_APPCHECK_DEBUG_TOKEN": "",
+
+  "MAPBOX_PUBLIC_ACCESS_TOKEN": ""
 }

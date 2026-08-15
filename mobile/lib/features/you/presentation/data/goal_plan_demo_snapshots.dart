@@ -126,12 +126,17 @@ class GoalPlanWeekDisplaySnapshot {
     required this.weekLabel,
     required this.title,
     required this.status,
+    this.dateRangeLabel = '',
     this.dailyPlan = sampleGoalPlanDailyRows,
   });
 
   final String weekLabel;
   final String title;
   final GoalPlanWeekStatus status;
+
+  /// Calendar dates this plan week covers, e.g. `15–21 Aug`. Empty for the
+  /// demo/expert snapshots, which carry no real start date.
+  final String dateRangeLabel;
   final List<GoalPlanDayDisplaySnapshot> dailyPlan;
 }
 
@@ -140,11 +145,15 @@ class GoalPlanDayDisplaySnapshot {
     required this.weekday,
     required this.workoutType,
     required this.distanceOrTime,
+    this.dateLabel = '',
     this.workoutDetail,
   });
 
   final String weekday;
   final String workoutType;
   final String distanceOrTime;
+
+  /// Calendar date of this row, e.g. `17 Aug`. Empty for demo snapshots.
+  final String dateLabel;
   final WeeklyWorkoutDetailSnapshot? workoutDetail;
 }

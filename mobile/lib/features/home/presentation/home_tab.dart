@@ -1006,7 +1006,7 @@ class _HomeTabState extends State<HomeTab> with WidgetsBindingObserver {
     );
     final activeWeekNumber =
         activeWeek?.weekNumber ?? plan.weeks.first.weekNumber;
-    final activeWeekdayIndex = activeGeneratedPlanWeekdayFor(
+    final activePlanDayIndex = activeGeneratedPlanDayIndexFor(
       plan,
       currentDate: widget.currentDate,
     );
@@ -1021,7 +1021,8 @@ class _HomeTabState extends State<HomeTab> with WidgetsBindingObserver {
       plan: plan,
       completedScheduledWorkoutIds: completedIds,
       activeWeekNumber: activeWeekNumber,
-      currentWeekdayIndex: activeWeekdayIndex,
+      currentPlanDayIndex: activePlanDayIndex,
+      currentDate: widget.currentDate,
       backgroundSequence: backgroundSequence,
     );
   }

@@ -148,6 +148,8 @@ class YouPlanScheduleRow {
     this.active = false,
     this.opensWorkoutDetail = false,
     this.detailSnapshot,
+    this.date,
+    this.planWeekNumber,
     this.weekdayIndex = 0,
     this.isToday = false,
     this.isPast = false,
@@ -156,6 +158,7 @@ class YouPlanScheduleRow {
     this.canOpenDetail = false,
     this.canStart = false,
     this.canEditSchedule = false,
+    this.isOutsidePlan = false,
   });
 
   final String day;
@@ -165,6 +168,16 @@ class YouPlanScheduleRow {
   final bool active;
   final bool opensWorkoutDetail;
   final WeeklyWorkoutDetailSnapshot? detailSnapshot;
+
+  /// Calendar date this row stands for, when it came from a real plan.
+  ///
+  /// The week view is laid out on calendar dates, not weekday order, because a
+  /// plan week only lines up with a calendar week when the plan starts on a
+  /// Monday.
+  final DateTime? date;
+
+  /// Plan week [date] belongs to. One calendar week can straddle two of them.
+  final int? planWeekNumber;
   final int weekdayIndex;
   final bool isToday;
   final bool isPast;
@@ -173,4 +186,8 @@ class YouPlanScheduleRow {
   final bool canOpenDetail;
   final bool canStart;
   final bool canEditSchedule;
+
+  /// True when the plan does not cover [date] at all — before it started or
+  /// after it ended. Distinct from a rest day, which is the plan working.
+  final bool isOutsidePlan;
 }

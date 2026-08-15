@@ -921,7 +921,7 @@ class _RuniacShellState extends State<RuniacShell> with WidgetsBindingObserver {
     );
     final activeWeekNumber =
         activeWeek?.weekNumber ?? activePlan.weeks.first.weekNumber;
-    final activeWeekdayIndex = activeGeneratedPlanWeekdayFor(
+    final activePlanDayIndex = activeGeneratedPlanDayIndexFor(
       activePlan,
       currentDate: currentDate,
     );
@@ -931,7 +931,8 @@ class _RuniacShellState extends State<RuniacShell> with WidgetsBindingObserver {
           generatedPlanProgress?.completedScheduledWorkoutIds ??
           const <String>{},
       activeWeekNumber: activeWeekNumber,
-      currentWeekdayIndex: activeWeekdayIndex,
+      currentPlanDayIndex: activePlanDayIndex,
+      currentDate: currentDate,
       backgroundSequence: const <String>[],
     );
     final weekIndex = model.currentWeekIndex;

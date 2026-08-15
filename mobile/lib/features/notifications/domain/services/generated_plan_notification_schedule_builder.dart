@@ -1,4 +1,5 @@
 import '../../../plan/domain/models/beginner_adaptive_plan_snapshot.dart';
+import '../../../plan/domain/services/generated_plan_schedule.dart';
 import 'fixed_time_plan_notification_policy.dart';
 import '../models/notification_center_settings.dart';
 import '../models/plan_notification_schedule.dart';
@@ -69,7 +70,7 @@ class GeneratedPlanNotificationScheduleBuilder {
     required DateTime anchorDate,
     required Set<String> completedScheduledWorkoutIds,
   }) {
-    final scheduledWorkoutId = _scheduledWorkoutIdFor(
+    final scheduledWorkoutId = generatedPlanScheduledWorkoutId(
       weekNumber: week.weekNumber,
       dayLabel: workout.dayLabel,
       title: workout.title,
@@ -98,10 +99,15 @@ class GeneratedPlanNotificationScheduleBuilder {
     // `dayLabel` is a real weekday, but the plan can start on any day, so a
     // label resolves to the matching weekday inside that week's seven-day
     // window. Monday-start plans keep the dates they already had.
-    final anchorOffset = (anchorDate.weekday - DateTime.monday) % 7;
-    final dayOffset = (_weekdayOffset(dayLabel) - anchorOffset + 7) % 7;
-    final daysFromAnchor = ((weekNumber - 1) * DateTime.daysPerWeek) + dayOffset;
-    final workoutDate = anchorDate.add(Duration(days: daysFromAnchor));
+    final workoutDate =
+        generatedPlanScheduledDate(
+          start: anchorDate,
+          weekNumber: weekNumber,
+          dayLabel: dayLabel,
+        ) ??
+        anchorDate.add(
+          Duration(days: (weekNumber - 1) * kGeneratedPlanDaysPerWeek),
+        );
     return DateTime(
       workoutDate.year,
       workoutDate.month,
@@ -112,19 +118,13 @@ class GeneratedPlanNotificationScheduleBuilder {
   }
 
   DateTime _planStartDate(String? startsOnDate, DateTime currentDate) {
-    final parsed = startsOnDate == null
-        ? null
-        : DateTime.tryParse(startsOnDate);
+    final parsed = generatedPlanDateFromLabel(startsOnDate);
     if (parsed != null) {
-      return DateTime(parsed.year, parsed.month, parsed.day);
+      return parsed;
     }
-    final today = DateTime(
-      currentDate.year,
-      currentDate.month,
-      currentDate.day,
-    );
+    final today = generatedPlanDateOnly(currentDate);
     return today.subtract(
-      Duration(days: currentDate.weekday - DateTime.monday),
+      Duration(days: generatedPlanWeekdayOffsetOf(today)),
     );
   }
 
@@ -148,31 +148,6 @@ class GeneratedPlanNotificationScheduleBuilder {
     return _ClockTime(hour, minute.clamp(0, 59));
   }
 
-  int _weekdayOffset(String dayLabel) {
-    return switch (dayLabel) {
-      'Mon' => 0,
-      'Tue' => 1,
-      'Wed' => 2,
-      'Thu' => 3,
-      'Fri' => 4,
-      'Sat' => 5,
-      'Sun' => 6,
-      _ => 0,
-    };
-  }
-
-  String _scheduledWorkoutIdFor({
-    required int weekNumber,
-    required String dayLabel,
-    required String title,
-  }) {
-    final titleSlug = title
-        .toLowerCase()
-        .replaceAll(RegExp('[^a-z0-9]+'), '-')
-        .replaceAll(RegExp(r'^-|-+$'), '');
-    final suffix = titleSlug.isEmpty ? 'workout' : titleSlug;
-    return 'week-$weekNumber-${dayLabel.toLowerCase()}-$suffix';
-  }
 }
 
 class _ClockTime {

@@ -217,9 +217,11 @@ class _YouTabState extends State<YouTab> {
           currentDate: widget.progressToday,
           adaptiveEstimate: widget.adaptivePlanEstimate,
         );
+    // Derived from the plan itself, not from `_editedGeneratedPlanDisplay`: the
+    // full-plan view is laid out in plan weeks while that display is a calendar
+    // week, and a reschedule already writes back through `setActivePlan`.
     final generatedGoalPlanDetail = generatedGoalPlanDisplayFromSnapshot(
       activeGeneratedPlan,
-      currentWeekDisplay: _editedGeneratedPlanDisplay,
       currentDate: widget.progressToday,
     );
     final safetyReadinessDisplay = safetyReadinessYouPlanDisplayFromSnapshot(

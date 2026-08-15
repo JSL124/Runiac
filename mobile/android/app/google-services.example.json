@@ -1,0 +1,33 @@
+{
+  "_comment_1": "Android Firebase config. Copy to google-services.json in this same folder, then fill in the five <FILL_IN> values from the Firebase console: Project settings > General > Your apps > Android app. google-services.json is gitignored.",
+  "_comment_2": "Leaving this file as .example is fine: mobile/android/app/build.gradle.kts only applies the google-services plugin when a real google-services.json is present, so the app still builds and runs in offline mode without it.",
+  "_comment_3": "package_name must stay com.runiac.runiac_app — it has to match applicationId in build.gradle.kts, so register the Android app in Firebase under exactly that id.",
+
+  "project_info": {
+    "project_number": "FILL_IN_PROJECT_NUMBER",
+    "project_id": "FILL_IN_PROJECT_ID",
+    "storage_bucket": "FILL_IN_PROJECT_ID.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "FILL_IN_MOBILESDK_APP_ID",
+        "android_client_info": {
+          "package_name": "com.runiac.runiac_app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "FILL_IN_ANDROID_API_KEY"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

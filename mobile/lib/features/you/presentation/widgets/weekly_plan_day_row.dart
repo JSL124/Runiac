@@ -8,7 +8,10 @@ import '../data/you_overview_demo_snapshots.dart';
 /// [WeeklyPlanDayRowState] is the whole design of this widget: rest, completed,
 /// completed today, missed and the upcoming states are separate cases rather
 /// than a boolean, because a missed session and a rest day must never look
-/// alike to a beginner — one is the plan working, the other is not.
+/// alike to a beginner — one is the plan working, the other is not. By the same
+/// reasoning [WeeklyPlanDayRowState.outsidePlan] is its own case: a calendar day
+/// the plan does not reach yet is not a rest day either, and showing it as one
+/// would claim the plan scheduled something it did not.
 enum WeeklyPlanDayRowState {
   rest,
   completed,
@@ -16,6 +19,7 @@ enum WeeklyPlanDayRowState {
   missed,
   todayUpcoming,
   futureUpcoming,
+  outsidePlan,
   inactive,
 }
 
@@ -53,7 +57,10 @@ class WeeklyPlanDayRow extends StatelessWidget {
         state == WeeklyPlanDayRowState.completed ||
         state == WeeklyPlanDayRowState.futureUpcoming;
     final missed = state == WeeklyPlanDayRowState.missed;
-    final dayColor = missed
+    final outsidePlan = state == WeeklyPlanDayRowState.outsidePlan;
+    final dayColor = outsidePlan
+        ? RuniacColors.primaryBlue.withValues(alpha: 0.28)
+        : missed
         ? RuniacColors.textSecondary
         : usesTodayTreatment
         ? const Color(0xFFE8550A)
@@ -66,9 +73,12 @@ class WeeklyPlanDayRow extends StatelessWidget {
         ? const Color(0xFFE8550A)
         : RuniacColors.primaryBlue.withValues(alpha: 0.60);
     final status = display.status;
+    final date = display.date;
     final row = Container(
       key: missed
           ? ValueKey('weekly_plan_missed_${display.weekdayIndex}')
+          : outsidePlan
+          ? ValueKey('weekly_plan_outside_plan_${display.weekdayIndex}')
           : null,
       constraints: const BoxConstraints(minHeight: 50),
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
@@ -90,15 +100,32 @@ class WeeklyPlanDayRow extends StatelessWidget {
         children: [
           SizedBox(
             width: 34,
-            child: Text(
-              display.day,
-              style: TextStyle(
-                color: dayColor,
-                fontSize: 13,
-                fontWeight: usesTodayTreatment || usesBlueActiveTreatment
-                    ? FontWeight.w800
-                    : FontWeight.w600,
-              ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  display.day,
+                  style: TextStyle(
+                    color: dayColor,
+                    fontSize: 13,
+                    fontWeight: usesTodayTreatment || usesBlueActiveTreatment
+                        ? FontWeight.w800
+                        : FontWeight.w600,
+                  ),
+                ),
+                // The date is what tells a mid-week starter that the Monday
+                // above today's row is next week's Monday, not one they missed.
+                if (date != null)
+                  Text(
+                    '${date.day}',
+                    style: TextStyle(
+                      color: dayColor.withValues(alpha: 0.70),
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+              ],
             ),
           ),
           const SizedBox(width: 10),
@@ -231,6 +258,21 @@ class WeeklyPlanStatusNode extends StatelessWidget {
       );
     }
 
+    // A day the plan does not cover: a hairline placeholder, deliberately
+    // quieter than the rest-day bed icon and than the missed marker.
+    if (state == WeeklyPlanDayRowState.outsidePlan) {
+      return Center(
+        child: Container(
+          width: 14,
+          height: 1.5,
+          decoration: BoxDecoration(
+            color: RuniacColors.primaryBlue.withValues(alpha: 0.18),
+            borderRadius: BorderRadius.circular(999),
+          ),
+        ),
+      );
+    }
+
     if (state == WeeklyPlanDayRowState.missed) {
       return Container(
         width: 28,
@@ -258,6 +300,9 @@ WeeklyPlanDayRowState _stateFor(
   YouPlanScheduleRow display, {
   required bool tappable,
 }) {
+  if (display.isOutsidePlan) {
+    return WeeklyPlanDayRowState.outsidePlan;
+  }
   final completed = display.status == 'Completed';
   if (completed && display.isToday) {
     return WeeklyPlanDayRowState.completedToday;

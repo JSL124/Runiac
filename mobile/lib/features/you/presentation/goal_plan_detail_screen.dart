@@ -341,12 +341,31 @@ class _GoalPlanTimelineRow extends StatelessWidget {
                             ),
                             const SizedBox(width: 8),
                             Expanded(
-                              child: Text(
-                                display.title,
-                                style:
-                                    display.status == GoalPlanWeekStatus.current
-                                    ? _bodyStrongStyle
-                                    : _bodyStyle,
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Text(
+                                    display.title,
+                                    style:
+                                        display.status ==
+                                            GoalPlanWeekStatus.current
+                                        ? _bodyStrongStyle
+                                        : _bodyStyle,
+                                  ),
+                                  // Plan weeks run seven days from the day the
+                                  // plan started, which is not a Monday for
+                                  // anyone who onboarded mid-week. The dates
+                                  // say so outright.
+                                  if (display.dateRangeLabel.isNotEmpty)
+                                    Text(
+                                      display.dateRangeLabel,
+                                      key: ValueKey(
+                                        'goal_plan_detail_week_dates_${display.weekLabel}',
+                                      ),
+                                      style: _smallBodyStyle,
+                                    ),
+                                ],
                               ),
                             ),
                             const SizedBox(width: 8),
@@ -429,7 +448,21 @@ class _GoalPlanDailyRow extends StatelessWidget {
       padding: const EdgeInsets.symmetric(vertical: 8),
       child: Row(
         children: [
-          SizedBox(width: 82, child: Text(day.weekday, style: _smallBodyStyle)),
+          SizedBox(
+            width: 82,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(day.weekday, style: _smallBodyStyle),
+                if (day.dateLabel.isNotEmpty)
+                  Text(
+                    day.dateLabel,
+                    style: _smallBodyStyle.copyWith(fontSize: 11),
+                  ),
+              ],
+            ),
+          ),
           Expanded(
             child: Text(
               day.workoutType,

@@ -45,9 +45,24 @@ class GeneratedWeeklyPlanCard extends StatelessWidget {
                         ),
                       ),
                       const SizedBox(width: 12),
-                      Text(
-                        plan.progressLabel,
-                        style: YouTextStyles.weeklyPlanProgressLabel,
+                      // Progress counts the plan week; the rows below cover the
+                      // calendar week. On a mid-week-start plan those are
+                      // different date ranges, so both are labelled rather than
+                      // left to look like a contradiction.
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.end,
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            plan.progressLabel,
+                            style: YouTextStyles.weeklyPlanProgressLabel,
+                          ),
+                          if (plan.planWeekRangeLabel.isNotEmpty)
+                            Text(
+                              plan.planWeekRangeLabel,
+                              style: YouTextStyles.body.copyWith(fontSize: 11),
+                            ),
+                        ],
                       ),
                     ],
                   ),
@@ -76,6 +91,17 @@ class GeneratedWeeklyPlanCard extends StatelessWidget {
             height: 1,
             color: RuniacColors.primaryBlue.withValues(alpha: 0.10),
           ),
+          if (plan.calendarWeekRangeLabel.isNotEmpty) ...[
+            const SizedBox(height: 8),
+            Text(
+              'This week · ${plan.calendarWeekRangeLabel}',
+              key: const ValueKey('generated_weekly_plan_calendar_week_label'),
+              style: YouTextStyles.body.copyWith(
+                fontSize: 11,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ],
           const SizedBox(height: 4),
           for (var index = 0; index < plan.scheduleRows.length; index++)
             _scheduleRow(plan.scheduleRows[index], showDivider: index > 0),

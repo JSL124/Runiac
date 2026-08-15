@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -171,12 +172,44 @@ class FirebaseFeedDataPort implements FeedDataPort {
   ) async {
     try {
       return await operation();
-    } on FirebaseException catch (error) {
-      if (error.code == 'permission-denied') {
+    } catch (error, stackTrace) {
+      final cause = unwrapConcurrentFailure(error);
+      if (cause is FirebaseException && cause.code == 'permission-denied') {
         throw FeedAuthorPermissionDenied(authorUid);
       }
-      rethrow;
+      // Rethrow the *cause*, not the wrapper. A `ParallelWaitError` carries no
+      // message of its own, so letting it travel on would reach the timeline's
+      // failure reporting saying nothing about what actually failed.
+      Error.throwWithStackTrace(cause, stackTrace);
     }
+  }
+
+  /// Recovers the first underlying error from a concurrent-wait wrapper, or
+  /// returns [error] unchanged when it is not one.
+  ///
+  /// `Future.wait` — what this port uses — rethrows the first error directly
+  /// and needs no unwrapping. The `.wait` extensions on `Iterable<Future>` and
+  /// on records do not: they wrap into [ParallelWaitError], whose type says
+  /// nothing about the failure inside. This exists so a future call site that
+  /// reaches for one of those forms cannot silently disable the
+  /// `permission-denied` classification above the way the per-post like and
+  /// comment probe once did.
+  ///
+  /// Only the `Iterable` shape can be unwrapped: a record's `errors` field is
+  /// a record, which Dart cannot iterate reflectively. That is the second
+  /// reason `FirebaseFeedPostMapper.mapReference` must keep using
+  /// `Future.wait`.
+  @visibleForTesting
+  static Object unwrapConcurrentFailure(Object error) {
+    if (error is! ParallelWaitError) return error;
+    final Object? errors = error.errors;
+    if (errors is Iterable) {
+      for (final entry in errors) {
+        if (entry is AsyncError) return entry.error;
+        if (entry != null) return entry;
+      }
+    }
+    return error;
   }
 
   @override

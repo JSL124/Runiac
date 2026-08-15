@@ -125,6 +125,16 @@ export const ACCOUNT_DELETION_STEPS: readonly DeletionStep[] = [
     field: "userUid",
   },
   {
+    // This step is why `comments.authorUid` carries a `fieldOverrides` entry in
+    // `firestore.indexes.json` rather than relying on automatic indexing.
+    //
+    // That entry must keep declaring BOTH scopes. A fieldOverrides entry
+    // REPLACES automatic single-field indexing, so listing only the
+    // COLLECTION_GROUP index this sweep needs deletes the COLLECTION-scope ones
+    // the Feed's per-post viewer probe queries on
+    // (`FirebaseFeedPostMapper.mapReference`), which takes the whole timeline
+    // down with `failed-precondition`. Adding a scope here is safe; narrowing
+    // the override to one scope is not.
     id: "feed-comments",
     kind: "collectionGroup",
     groups: ["comments"],

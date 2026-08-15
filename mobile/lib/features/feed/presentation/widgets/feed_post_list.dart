@@ -88,12 +88,51 @@ class FeedPostList extends StatelessWidget {
       FeedStatusMessage(
         title: message,
         body: 'Pull down or tap retry to load friends posts.',
-        action: OutlinedButton(
-          onPressed: controller.refresh,
-          child: const Text('Retry'),
-        ),
+        action: _FeedRetryButton(onRetry: controller.refresh),
       ),
     ],
+  );
+}
+
+/// Retry affordance that shows the reload it starts.
+///
+/// The bare `OutlinedButton` this replaces called the very same `refresh`,
+/// but a failed reload rebuilds the screen into the identical error state —
+/// so every tap looked like a dead button, and a runner could not tell a
+/// non-responsive control from a retry that ran and failed again. Pull to
+/// refresh never had that problem because `RefreshIndicator` shows its own
+/// spinner for exactly the same future.
+class _FeedRetryButton extends StatefulWidget {
+  const _FeedRetryButton({required this.onRetry});
+
+  final Future<void> Function() onRetry;
+
+  @override
+  State<_FeedRetryButton> createState() => _FeedRetryButtonState();
+}
+
+class _FeedRetryButtonState extends State<_FeedRetryButton> {
+  bool _retrying = false;
+
+  Future<void> _retry() async {
+    if (_retrying) return;
+    setState(() => _retrying = true);
+    try {
+      await widget.onRetry();
+    } finally {
+      if (mounted) setState(() => _retrying = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) => OutlinedButton(
+    onPressed: _retrying ? null : _retry,
+    child: _retrying
+        ? const SizedBox.square(
+            dimension: 16,
+            child: CircularProgressIndicator(strokeWidth: 2),
+          )
+        : const Text('Retry'),
   );
 }
 

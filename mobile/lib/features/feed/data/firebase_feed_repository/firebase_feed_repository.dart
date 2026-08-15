@@ -1,4 +1,7 @@
-import 'dart:typed_data';
+// `Uint8List` (readThumbnail) comes from foundation's re-export of
+// dart:typed_data; importing both trips `unnecessary_import`.
+import 'package:flutter/foundation.dart';
+
 import '../../domain/models/feed_display_models.dart';
 import '../../domain/repositories/feed_repository.dart';
 import '../comments/feed_comment_page_loader.dart';
@@ -58,11 +61,41 @@ class FirebaseFeedRepository
       _session!.evictRevoked();
       _state = _session!.state;
       return _loadNextPage();
-    } catch (error) {
+    } catch (error, stackTrace) {
+      _reportTimelineFailure('loading the feed timeline', error, stackTrace);
       return FeedTimelineStateMutator.failure(
         _state,
         _session?.buffers.usedCachedSnapshot == true,
       );
+    }
+  }
+
+  /// Records why a timeline load collapsed into
+  /// [FeedTimelineStateMutator.failure].
+  ///
+  /// Both catch sites previously bound the error and then dropped it, so the
+  /// only trace a failed Feed left anywhere was the words "Feed could not be
+  /// refreshed." on screen — the cause reached no log, no report, and no
+  /// crash. Diagnostics only: this reports through the same
+  /// `FlutterError.reportError` seam `main.dart` wires into
+  /// `RuniacErrorReporter`, changes no control flow, and mutates no state.
+  void _reportTimelineFailure(
+    String operation,
+    Object error,
+    StackTrace stackTrace,
+  ) {
+    try {
+      FlutterError.reportError(
+        FlutterErrorDetails(
+          exception: error,
+          stack: stackTrace,
+          library: 'runiac feed',
+          context: ErrorDescription(operation),
+        ),
+      );
+    } catch (_) {
+      // Best effort. A reporting failure must never turn a recoverable
+      // timeline failure into an unhandled one.
     }
   }
 
@@ -75,7 +108,8 @@ class FirebaseFeedRepository
     _state = FeedTimelineStateMutator.copy(_state, refreshing: true);
     try {
       return _loadNextPage();
-    } catch (error) {
+    } catch (error, stackTrace) {
+      _reportTimelineFailure('paging the feed timeline', error, stackTrace);
       return FeedTimelineStateMutator.failure(
         _state,
         _session?.buffers.usedCachedSnapshot == true,

@@ -1,4 +1,5 @@
 import '../../../plan/domain/models/beginner_adaptive_plan_snapshot.dart';
+import '../../../plan/domain/services/generated_plan_schedule.dart';
 import '../../../plan/presentation/current_session_generated_plan.dart'
     show isGeneratedPlanSession;
 import 'home_stage_background_sequence.dart';
@@ -176,7 +177,8 @@ HomeStageMapModel buildHomeStageMapModel({
   required BeginnerAdaptivePlanSnapshot plan,
   required Set<String> completedScheduledWorkoutIds,
   required int activeWeekNumber,
-  int? currentWeekdayIndex,
+  int? currentPlanDayIndex,
+  DateTime? currentDate,
   required List<String> backgroundSequence,
 }) {
   if (plan.weeks.isEmpty) {
@@ -193,6 +195,10 @@ HomeStageMapModel buildHomeStageMapModel({
   // workout in every week carries a Mon..Sun label. Mixed/synthetic-label
   // plans keep the positional layout so they never scatter randomly.
   final useWeekdaySlots = _planUsesWeekdayLabels(plan);
+  final anchor = generatedPlanAnchorDate(
+    plan,
+    today: currentDate ?? DateTime.now(),
+  );
 
   final rawByWeek = <List<_RawStone>>[];
   for (var w = 0; w < plan.weeks.length; w++) {
@@ -202,6 +208,7 @@ HomeStageMapModel buildHomeStageMapModel({
           ? _weekdaySlottedRawStones(
               week: week,
               completedScheduledWorkoutIds: completedScheduledWorkoutIds,
+              anchor: anchor,
             )
           : _positionalRawStones(
               week: week,
@@ -219,8 +226,10 @@ HomeStageMapModel buildHomeStageMapModel({
   }
 
   final activeRaw = rawByWeek[currentWeekIndex];
-  int? todayDayIndex = useWeekdaySlots && currentWeekdayIndex != null
-      ? currentWeekdayIndex.clamp(DateTime.monday, DateTime.sunday) - 1
+  // Stones are keyed by position inside the plan week, so today's stone is the
+  // plan day index (`elapsedDays % 7`) — not today's calendar weekday number.
+  int? todayDayIndex = useWeekdaySlots && currentPlanDayIndex != null
+      ? currentPlanDayIndex.clamp(0, kHomeStageDaysPerWeek - 1)
       : null;
   int? characterDayIndex;
   int? lastRunIndex;
@@ -259,7 +268,7 @@ HomeStageMapModel buildHomeStageMapModel({
         } else if (w == currentWeekIndex && d == todayDayIndex) {
           state = HomeStageStoneState.current;
         } else if (useWeekdaySlots &&
-            currentWeekdayIndex != null &&
+            currentPlanDayIndex != null &&
             todayDayIndex != null &&
             (w < currentWeekIndex ||
                 (w == currentWeekIndex && d < todayDayIndex))) {
@@ -310,17 +319,35 @@ HomeStageMapModel buildHomeStageMapModel({
   );
 }
 
-/// Builds one week's 7 raw stones keyed by real weekday slot (Mon=0..Sun=6).
+/// Builds one week's 7 raw stones keyed by position inside the plan week.
 ///
-/// Every slot always gets a weekday [dayLabel]. Run stones from
-/// [week.workouts] are placed at their weekday's slot; if two workouts map
-/// to the same weekday (e.g. a duplicated preferred-day cycle), the later one
-/// is shifted forward to the next free slot, wrapping around the week. Any
-/// slot left unclaimed by a run workout becomes a rest stone.
+/// Slot 0 is the weekday the plan started on, so a Saturday-start plan reads
+/// Sat, Sun, Mon … Fri from the bottom of the section up. That ordering is what
+/// makes the map a journey: every stone above the character is still ahead in
+/// time, and every stone below it has already happened. Keying by calendar
+/// weekday instead would put a Saturday starter on the sixth stone of week 1
+/// with three run stones drawn *below* it that are actually days away — which
+/// is how they came to be marked missed.
+///
+/// Every slot always gets a weekday [dayLabel] for its caption. Run stones from
+/// [week.workouts] are placed at their weekday's offset; if two workouts map to
+/// the same offset (e.g. a duplicated preferred-day cycle), the later one is
+/// shifted forward to the next free slot, wrapping around the week. Any slot
+/// left unclaimed by a run workout becomes a rest stone.
 List<_RawStone> _weekdaySlottedRawStones({
   required BeginnerAdaptivePlanWeek week,
   required Set<String> completedScheduledWorkoutIds,
+  required DateTime anchor,
 }) {
+  final weekStart = generatedPlanAddDays(
+    anchor,
+    (week.weekNumber - 1) * kHomeStageDaysPerWeek,
+  );
+  final slotLabels = [
+    for (var d = 0; d < kHomeStageDaysPerWeek; d++)
+      generatedPlanWeekdayLabelOf(generatedPlanAddDays(weekStart, d)),
+  ];
+
   final slots = List<_RawStone?>.filled(kHomeStageDaysPerWeek, null);
   for (final workout in week.workouts) {
     if (!isGeneratedPlanSession(workout)) {
@@ -331,7 +358,10 @@ List<_RawStone> _weekdaySlottedRawStones({
       dayLabel: workout.dayLabel,
       title: workout.title,
     );
-    var slot = _weekdaySlotIndexFor(workout.dayLabel);
+    var slot = generatedPlanDayOffsetFor(
+      start: anchor,
+      dayLabel: workout.dayLabel,
+    );
     if (slot == null) {
       // Guarded by _planUsesWeekdayLabels, but stay defensive.
       continue;
@@ -348,7 +378,7 @@ List<_RawStone> _weekdaySlottedRawStones({
     slots[slot] = _RawStone(
       kind: HomeStageStoneKind.run,
       completed: completedScheduledWorkoutIds.contains(id),
-      dayLabel: kHomeStageWeekdayLabels[slot],
+      dayLabel: slotLabels[slot],
       scheduledWorkoutId: id,
       workoutTitle: workout.title,
     );
@@ -359,7 +389,7 @@ List<_RawStone> _weekdaySlottedRawStones({
           _RawStone(
             kind: HomeStageStoneKind.rest,
             completed: false,
-            dayLabel: kHomeStageWeekdayLabels[d],
+            dayLabel: slotLabels[d],
             scheduledWorkoutId: null,
             workoutTitle: null,
           ),

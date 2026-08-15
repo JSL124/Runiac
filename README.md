@@ -55,11 +55,10 @@ Cloud Functions.
 
 | Area | Files | Lines |
 | --- | ---: | ---: |
-| `mobile/lib` (Flutter app) | 629 | 116,902 |
-| `mobile/test` | 284 | 99,949 |
-| `functions/src` (Cloud Functions) | 184 | 28,326 |
-| `functions/test` | 91 | 26,713 |
-| `website/src` | 165 | 38,498 |
+| `mobile/lib` (Flutter app) | 630 | 118,373 |
+| `functions/src` (Cloud Functions) | 184 | 28,432 |
+| `functions/test` (white-box suite W1–W15) | 1 | 391 |
+| `website/src` | 135 | 33,876 |
 | Native (Swift 11, Kotlin 9) | 20 | ~2,600 |
 | Security rules | 2 | 1,388 |
 
@@ -78,8 +77,6 @@ Runiac/
 │   │                           auth, challenge, feed, friends, home, leaderboard, maps,
 │   │                           moderation, notifications, onboarding, paywall, plan, profile,
 │   │                           run, settings, shell, splash, tutorial, you
-│   ├── test/                   unit and widget tests
-│   ├── integration_test/       device tests against the Firebase emulator
 │   ├── android/  ios/          native hosts (incl. an iOS Live Activity extension)
 │   ├── assets/                 images, Lottie animations, Singapore planning-area GeoJSON
 │   └── dart_define.example.json
@@ -94,7 +91,7 @@ Runiac/
 │   │   ├── plan/  paywall config/  profile/  account/  newsletter/  feedback/
 │   │   ├── agent/              LLM coaching: home guide, activity feedback, workout briefing
 │   │   └── security/  errors/
-│   └── test/                   emulator-driven test suites
+│   └── test/                   white-box suite, cases W1–W15 (section 7)
 │
 ├── website/                Next.js site and admin console
 │   ├── src/app/                App Router — public pages, /login, /signup, /admin/*, /api/*
@@ -103,10 +100,6 @@ Runiac/
 │   ├── scripts/                seed-emulator, set-admin-role, backfill helpers
 │   ├── public/                 images and fonts
 │   └── .env.local.example
-│
-├── tests/
-│   ├── firebase-rules/         Firestore and Storage rules tests (emulator)
-│   └── cross-system/           contract-drift checks between app, backend and website
 │
 ├── firebase.json               emulator ports, functions runtime, rules wiring
 ├── firestore.rules             1,258 lines of access control
@@ -157,7 +150,19 @@ not yet available to the public — build from source with Xcode instead (sectio
 ```bash
 git clone https://github.com/JSL124/Runiac.git
 cd Runiac
+./scripts/setup.sh
 ```
+
+`scripts/setup.sh` does the whole setup except the keys: it checks your toolchain, installs the
+Cloud Functions, website and Flutter dependencies, and creates every configuration file from its
+template. It is safe to re-run — a config file that already exists is never overwritten, so keys
+you have filled in survive.
+
+When it finishes the app runs immediately, with no keys at all, in offline mode. The script then
+prints exactly which values to paste in if you want to connect a real Firebase backend, and where
+each one comes from. That list is also section 6 below.
+
+The sections that follow spell out each step by hand, if you would rather not run the script.
 
 ### 5.1 Mobile app — offline mode (no configuration at all)
 
@@ -169,11 +174,19 @@ flutter pub get
 flutter run                      # pick a connected device or simulator
 ```
 
-With no `--dart-define` flags, the app starts on its built-in static repositories and a
-non-production auth path. Every screen is reachable and the whole UI is exercisable; the data is
-local and nothing is written to a server. The Android build detects that no `google-services.json`
-is present and skips the Google Services plugin automatically, so the build succeeds with an empty
-configuration.
+With no `--dart-define` flags the app builds, launches and renders on its built-in static
+repositories — the landing, sign-up and log-in screens are all live and navigable, and nothing is
+written to a server. The Android build detects that no `google-services.json` is present and skips
+the Google Services plugin automatically, so the build succeeds with an empty configuration.
+
+**Sign-in is deliberately refused in this mode.** Creating an account calls
+`NonProductionAuthRepository`, which returns *"Runiac sign-in is only available in the local
+Firebase emulator right now."* rather than pretending to succeed — there is no backend to hold the
+account. So this mode proves the app builds and runs, but it stops at the auth wall.
+
+To get **past** sign-in without any credentials, use the local Firebase emulator: sections 5.2 and
+5.3. That path needs no keys either — only Java 17 and the Firebase CLI — and gives you the full
+signed-in app.
 
 To produce an installable APK:
 
@@ -295,28 +308,34 @@ no keys ever live in the source tree.
 
 ## 7. Running the tests
 
+The repository carries the white-box suite: cases **W1–W15**, covering the calculations the client
+is never allowed to write — the XP caps, the streak transitions, run-payload validation, and the
+leaderboard projection bounds.
+
 ```bash
-# Flutter — 2,683 unit and widget tests
-cd mobile && flutter analyze && flutter test
-
-# Cloud Functions — emulator-driven suites (Java 17 and the Firebase CLI required)
 cd functions && npm ci && npm test
-
-# Website — Vitest
-cd website && npm ci && npm test
-
-# Firestore and Storage security rules
-cd tests/firebase-rules && npm ci && npm test
-
-# Cross-system contract drift (app ↔ backend ↔ website)
-node tests/cross-system/config-contract-drift.mjs
-node tests/cross-system/avatar-path-contract-drift.mjs
-node tests/cross-system/paywall-config-drift.mjs
-node tests/cross-system/account-deletion-index-drift.mjs
 ```
 
-The Cloud Functions tests run the coaching agents against a deterministic fake provider
-(`RUNIAC_HOME_GUIDE_FAKE_PROVIDER=deterministic`), so no OpenAI key is needed.
+The cases are pure calculation — no Firestore, no emulator, no wall clock — so they need neither
+Java nor the Firebase CLI, and every case that touches time pins its own "now".
+
+| Case | Function under test | What it pins down |
+| --- | --- | --- |
+| W1 | `calculateActivityXp` | A 250 XP raw award is cut to the 100 XP per-activity cap, plan bonus still reported |
+| W2 | `applyDailyXpCap` | Only the day's remaining room is awarded, then nothing once the 200 XP cap is spent |
+| W3 | `calculateStreakMilestoneBonus` | A 1 → 10 jump pays the day-7 milestone alone (90 XP), never the sum |
+| W4 | `sumDailyXp` | A streak milestone bonus is exempt from the cap and does not consume the day's budget |
+| W5 | `calculateStreakExpiryTransition` | An unprotected missed day resets the streak to 0 |
+| W6 | `calculateStreakExpiryTransition` | A planned rest day holds the streak and issues no profile write |
+| W7 | `calculateStreakTransition` | A 16:30 UTC run is dated by the Singapore calendar day, not the UTC one |
+| W8 | `parseRunCompletionPayload` | A missing required field is rejected before any document is written |
+| W9 | `parseRunCompletionPayload` | Backend-owned fields (`xp`, `validationStatus`, `countsTowardProgression`, `leaderboardScore`) are refused |
+| W10 | `parseRunCompletionPayload` | Three individually-legal values that cannot describe one run are refused |
+| W11 | `assertCompletedAtNotInFuture` | A device clock up to six hours fast is accepted; the next second is not |
+| W12 | `progressionInstantFor` | An accepted future `completedAt` cannot choose its own leaderboard period |
+| W13 | `planMonthlyLeaderboards` | Ten public rows, a five-row window centred on the runner, no `ownerUid` published |
+| W14 | `planMonthlyLeaderboards` | A contribution under the minimum qualifying runs is left off with a named status |
+| W15 | `planMonthlyLeaderboards` | Premium and Basic rank on score alone — the subscription confers no advantage |
 
 ---
 
@@ -371,7 +390,10 @@ tour.
 ### 8.4 Everything else
 
 - **Progress and plan** (You tab) — level, XP toward the next level, current streak, weekly
-  distance, full activity history, and the remaining sessions in your plan.
+  distance, full activity history, and the remaining sessions in your plan. The week strip shows
+  the current calendar week (Mon–Sun); days your plan does not cover are blank rather than marked
+  as rest. Your plan runs for whole weeks from the day you finished onboarding, so if that was not
+  a Monday the plan week and the calendar week differ — the card labels both date ranges.
 - **Feed** — share a run, then like and comment on other runners' posts.
 - **Leaderboard** — ranked by score within your region and league tier. Scores are calculated by
   the server; there is no way for a client to influence them.
@@ -433,4 +455,4 @@ whose `userRole` is `platformAdmin`; any other account is returned to the public
 | Gradle fails with a Java version error | Use JDK 17. `flutter doctor --android-licenses` may also need to be accepted once. |
 | `firebase emulators:start` fails to launch Firestore | The emulator needs Java. Install JDK 17 and make sure `java` is on `PATH`. |
 | Website admin pages return you to the public site | Your account's `userRole` is not `platformAdmin`. Add your address to `FIREBASE_ADMIN_EMAILS`, sign in, then run `node scripts/set-admin-role.mjs <email>`. |
-| `npm test` in `functions/` hangs or fails to start | The suites drive the Firebase emulator; make sure port 8080, 9099, 5001 and 9199 are free. |
+| `npm test` in `functions/` fails to start | It compiles first (`tsc -p tsconfig.json`); a TypeScript error stops the run before any case executes. No emulator or Java is needed. |

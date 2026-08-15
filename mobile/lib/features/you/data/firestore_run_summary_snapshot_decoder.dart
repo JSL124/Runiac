@@ -98,11 +98,11 @@ class FirestoreRunSummarySnapshotDecoder {
     final latitude = _readFiniteDouble(source['latitude']);
     final longitude = _readFiniteDouble(source['longitude']);
     if (latitude == null ||
-        !_hasThreeDecimalPrecision(latitude) ||
+        !_isQuantizedPreviewCoordinate(latitude) ||
         latitude < -90 ||
         latitude > 90 ||
         longitude == null ||
-        !_hasThreeDecimalPrecision(longitude) ||
+        !_isQuantizedPreviewCoordinate(longitude) ||
         longitude < -180 ||
         longitude > 180) {
       return null;
@@ -223,8 +223,22 @@ class FirestoreRunSummarySnapshotDecoder {
         source.keys.every(expected.contains);
   }
 
-  bool _hasThreeDecimalPrecision(double value) {
-    return double.parse(value.toStringAsFixed(3)) == value;
+  /// Whether a persisted coordinate sits on the quantization grid the write
+  /// contract guarantees, so raw geometry cannot masquerade as a preview.
+  ///
+  /// The ceiling is five decimals (~1.1 m):
+  /// `RunCompletionRequestPayloadSerializer._quantizeCoordinate` rounds to it
+  /// and `validateRoutePreview.ts` rejects anything finer server-side. Coarser
+  /// values still pass, which is what keeps runs stored under the previous
+  /// three-decimal ceiling readable — that older grid is a subset of this one.
+  ///
+  /// Reading at three decimals while the writer emitted five is what broke:
+  /// one rejected point discards the whole preview, so a run reopened from
+  /// Activity History drew no route line at all. The completion screen renders
+  /// the live session route and never goes through this decoder, which is why
+  /// it stayed invisible.
+  bool _isQuantizedPreviewCoordinate(double value) {
+    return double.parse(value.toStringAsFixed(5)) == value;
   }
 
   int? _readExactInt(Object? value) {
