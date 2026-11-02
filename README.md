@@ -12,6 +12,22 @@ console.
 
 ---
 
+## Videos
+
+### Marketing Video
+
+[![Watch the Runiac Marketing Video on YouTube](https://img.youtube.com/vi/B8CQZ3tQw60/hqdefault.jpg)](https://youtu.be/B8CQZ3tQw60)
+
+[Watch Marketing Video on YouTube](https://youtu.be/B8CQZ3tQw60)
+
+### Intro
+
+[![Watch the Runiac Intro on YouTube](https://img.youtube.com/vi/M4fmWkq0K5A/hqdefault.jpg)](https://youtu.be/M4fmWkq0K5A)
+
+[Watch Intro on YouTube](https://youtu.be/M4fmWkq0K5A)
+
+---
+
 ## Contents
 
 1. [System overview](#1-system-overview)
