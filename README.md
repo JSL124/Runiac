@@ -10,6 +10,11 @@ This repository is the complete source code for the system: the Flutter mobile a
 backend (Cloud Functions and security rules), and the public website with its administration
 console.
 
+**Live website:** [fyp-website-v2.vercel.app](https://fyp-website-v2.vercel.app/)
+
+The administration console is hosted on the same Vercel website. Sign in with an administrator
+account to be redirected to the console.
+
 ---
 
 ## Videos
@@ -253,6 +258,12 @@ project expects with `firebase deploy --only functions,firestore,storage` from t
 
 ### 5.5 Website and admin console
 
+**Hosted website:** [https://fyp-website-v2.vercel.app/](https://fyp-website-v2.vercel.app/).
+The administration console is part of this website. [Sign in](https://fyp-website-v2.vercel.app/login)
+with a Platform Administrator account (`userRole: platformAdmin`) to be redirected to the console.
+
+To run the website and console locally:
+
 ```bash
 cd website
 npm ci
@@ -270,7 +281,7 @@ node scripts/seed-emulator.mjs
 node scripts/set-admin-role.mjs <email>
 ```
 
-The console is at **http://localhost:3000/admin**. An account whose `userRole` is not
+For local development, the console is at **http://localhost:3000/admin**. An account whose `userRole` is not
 `platformAdmin` is redirected back to the public site.
 
 For a production build: `npm run build && npm start`.
@@ -442,8 +453,10 @@ Premium offers.
 
 ### 8.6 The administration console
 
-Platform Administrators work on the website, not in the app. Sign in at `/login` with an account
-whose `userRole` is `platformAdmin`; any other account is returned to the public site.
+Platform Administrators use the console hosted on the [Runiac website](https://fyp-website-v2.vercel.app/).
+[Sign in](https://fyp-website-v2.vercel.app/login) with an administrator account whose `userRole`
+is `platformAdmin` to be redirected to the console. Other accounts do not have access to the
+administration console and are returned to the public site.
 
 | Page | Purpose |
 | --- | --- |
